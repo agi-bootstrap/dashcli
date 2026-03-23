@@ -306,7 +306,7 @@ function renderTable(container, chart, data) {
     for (const col of cols) {
       const v = row[col];
       const isNum = numCols.has(col);
-      html += '<td' + (isNum ? ' class="num"' : '') + '>' + (isNum ? Number(v).toLocaleString() : esc(v ?? '')) + '</td>';
+      html += '<td' + (isNum ? ' class="num"' : '') + '>' + (isNum ? (v == null ? '' : Number(v).toLocaleString()) : esc(v ?? '')) + '</td>';
     }
     html += '</tr>';
   }
