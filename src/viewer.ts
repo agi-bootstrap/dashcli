@@ -111,7 +111,7 @@ body {
   color: var(--text-muted);
   margin-bottom: calc(var(--sp) * 3);
 }
-.chart-container { flex: 1; min-height: 0; }
+.chart-container { flex: 1; min-height: 180px; }
 
 /* KPI */
 .kpi-value {
