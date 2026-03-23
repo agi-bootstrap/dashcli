@@ -171,7 +171,8 @@ body {
     grid-row: auto !important;
   }
   .data-table { font-size: 12px; }
-  .kpi-value { font-size: 28px; }
+  .kpi-value { font-size: 28px; margin-top: calc(var(--sp) * 2); }
+  .card:has(.kpi-value) .chart-container { min-height: auto; }
 }
 </style>
 </head>
