@@ -302,6 +302,15 @@ function renderTable(container, chart, data) {
 }
 
 function renderEChart(container, chart, data) {
+  if (!data.length) {
+    if (chartInstances[chart.id]) {
+      chartInstances[chart.id].dispose();
+      delete chartInstances[chart.id];
+    }
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+
   let instance = chartInstances[chart.id];
   if (!instance) {
     container.innerHTML = '';
