@@ -5,13 +5,13 @@ All notable changes to dashcli will be documented in this file.
 ## [0.1.1.0] - 2026-03-22
 
 ### Added
-- 3 new chart types: pie (donut), scatter, and gauge
-- Pie chart with accent color opacity variations and donut layout (40%/70% radius)
-- Scatter chart with value axes on both X/Y and 8px symbols
-- Gauge chart with single-value arc, pointer, configurable min/max, and formatted detail
-- Sample all-charts-dashboard.yaml exercising all 7 chart types on a 3×3 grid
-- Schema validation: x/y fields required for pie, scatter, bar, and line charts
-- 29 new tests across schema validation and HTML rendering (71 total)
+- 3 new chart types: **pie** (donut), **scatter**, and **gauge** — dashcli now supports 7 chart types
+- Pie charts display proportions as a donut with accent-color opacity gradations
+- Scatter charts plot two numeric fields with formatted tooltips showing both axes
+- Gauge charts show a single metric against a configurable min/max range with formatted values
+- New `all-charts-dashboard.yaml` sample demonstrating all 7 chart types on a 3×3 grid
+- Schema now validates that pie, scatter, bar, and line charts include required x/y fields
+- 29 new tests (71 total) covering schema validation and HTML rendering for all chart types
 
 ### Fixed
 - Axis label color consistency: bar/line/scatter charts now use #737373 (WCAG AA compliant)
