@@ -129,6 +129,12 @@ describe("table numeric column alignment", () => {
   it("uses 0.5px letter-spacing on table headers (DESIGN.md)", () => {
     expect(html).toContain("letter-spacing: 0.5px");
   });
+
+  // Regression: null values in numeric columns silently became "0"
+  // Found by adversarial review on 2026-03-23
+  it("guards null values in numeric columns (renders empty, not '0')", () => {
+    expect(html).toContain("v == null ? '' : Number(v)");
+  });
 });
 
 describe("KPI mobile responsiveness", () => {
