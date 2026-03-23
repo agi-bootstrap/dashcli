@@ -11,11 +11,27 @@ All notable changes to dashcli will be documented in this file.
 - Gauge charts show a single metric against a configurable min/max range with formatted values
 - New `all-charts-dashboard.yaml` sample demonstrating all 7 chart types on a 3×3 grid
 - Schema now validates that pie, scatter, bar, and line charts include required x/y fields
+- DataSource interface abstracting data loading from file format
+- JSON file source adapter (array-of-objects → SQLite, with type inference)
+- Auto-detection of data source by file extension (.csv → CSV, .json → JSON)
+- Validation: nested objects/arrays in JSON throw clear errors
+- Multi-dot filename support (e.g., `sales.2024.csv` → table `sales.2024`)
+- `dashcli export <spec.yaml> [--out dir]` command for self-contained HTML output
+- Inlines ECharts library and pre-computed query results as embedded JSON
+- Exported files work fully offline with no server needed
+- Export date shown in subtitle for provenance tracking
+- `--out` flag validation (requires directory argument)
 - 29 new tests (71 total) covering schema validation and HTML rendering for all chart types
+- 19 new tests: JSON adapter (9), auto-detection (8), table name derivation (4)
+
+### Changed
+- `server.ts` uses `loadDataSource()` instead of direct `loadCsv()` call
+- Table name derivation centralized in `deriveTableName()` (strips only known extensions)
 
 ### Fixed
 - Axis label color consistency: bar/line/scatter charts now use #737373 (WCAG AA compliant)
 - Scatter tooltip shows both axis field names with formatted values
+- Non-functional filter bar hidden in exported HTML (filters require a server)
 
 ## [0.1.0.0] - 2026-03-22
 
