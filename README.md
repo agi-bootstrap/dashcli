@@ -79,7 +79,7 @@ charts:
     query: "SELECT SUM(revenue) as value FROM sales WHERE {{period}}"
     label: Total Revenue
     format: currency
-    position: [1, 1, 1, 1]
+    position: [0, 0, 1, 1]
 
   - id: by-region
     type: bar
@@ -87,7 +87,7 @@ charts:
     x: region
     y: total
     label: Revenue by Region
-    position: [2, 1, 2, 1]
+    position: [1, 0, 2, 1]
 ```
 
 ### Chart types
@@ -101,6 +101,10 @@ charts:
 | `scatter` | `x`, `y` | |
 | `gauge` | `query` (returns single value) | Optional `min`, `max` |
 | `table` | `query` (returns rows) | |
+
+### Filter interpolation
+
+Positions are `[col_start, row_start, col_span, row_span]`, 0-indexed.
 
 ### Filter interpolation
 
