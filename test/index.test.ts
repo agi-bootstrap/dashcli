@@ -70,6 +70,32 @@ describe("dashcli CLI", () => {
     });
   });
 
+  describe("--port validation", () => {
+    it("rejects non-numeric port", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "abc"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects port 0", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "0"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects port above 65535", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "70000"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects missing port value", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+  });
+
   describe("general CLI", () => {
     it("shows usage with --help", () => {
       const { stdout, exitCode } = run(["--help"]);
