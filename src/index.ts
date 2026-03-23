@@ -2,7 +2,7 @@
 
 import { resolve } from "path";
 import { startServer } from "./server";
-import { existsSync, mkdirSync, copyFileSync } from "fs";
+import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "fs";
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -47,7 +47,15 @@ if (command === "create") {
   const specDest = resolve(dashDir, `${name}.yaml`);
   const csvDest = resolve(dashDir, "sales.csv");
 
-  copyFileSync(specSrc, specDest);
+  if (existsSync(specDest)) {
+    console.log(`\n  Dashboard already exists: dashboards/${name}.yaml`);
+    console.log(`  Use a different name or delete the existing file.\n`);
+    process.exit(1);
+  }
+
+  // Copy sample and update the name field
+  const specContent = readFileSync(specSrc, "utf-8").replace(/^name:\s*.+$/m, `name: ${name}`);
+  writeFileSync(specDest, specContent);
   if (!existsSync(csvDest)) copyFileSync(csvSrc, csvDest);
 
   console.log(`\n  ✓ Created dashboard: ${name}`);
