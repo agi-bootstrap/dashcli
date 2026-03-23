@@ -94,6 +94,12 @@ describe("dashcli CLI", () => {
       expect(exitCode).toBe(1);
       expect(stderr).toContain("Invalid port");
     });
+
+    it("rejects fractional port", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "3838.5"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
   });
 
   describe("general CLI", () => {
