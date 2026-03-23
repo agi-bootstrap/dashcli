@@ -70,6 +70,51 @@ describe("dashcli CLI", () => {
     });
   });
 
+  describe("export command", () => {
+    const outDir = resolve(root, "test-export-out");
+
+    afterEach(() => {
+      if (existsSync(outDir)) rmSync(outDir, { recursive: true });
+    });
+
+    it("errors when no spec path given", () => {
+      const { stderr, exitCode } = run(["export"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Provide a path");
+    });
+
+    it("errors when spec file not found", () => {
+      const { stderr, exitCode } = run(["export", "nonexistent.yaml"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("File not found");
+    });
+
+    it("errors when --out has no value", () => {
+      const { stderr, exitCode } = run(["export", "sample/sales-dashboard.yaml", "--out"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("--out requires a directory");
+    });
+
+    it("exports a self-contained HTML file", () => {
+      const { stdout, exitCode } = run(["export", "sample/sales-dashboard.yaml", "--out", outDir]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("Exported:");
+      const html = readFileSync(resolve(outDir, "sales-dashboard.html"), "utf-8");
+      expect(html).toContain("PRELOADED_DATA");
+      expect(html).toContain("PRELOADED_FILTERS");
+      expect(html).not.toContain("cdn.jsdelivr.net");
+      expect(html).toContain("echarts");
+      expect(html).toContain('filter-bar" style="display:none"');
+    });
+
+    it("exports to spec directory by default", () => {
+      run(["create", "export-test"]);
+      const { exitCode } = run(["export", "dashboards/export-test.yaml"]);
+      expect(exitCode).toBe(0);
+      expect(existsSync(resolve(dashDir, "export-test.html"))).toBe(true);
+    });
+  });
+
   describe("general CLI", () => {
     it("shows usage with --help", () => {
       const { stdout, exitCode } = run(["--help"]);
