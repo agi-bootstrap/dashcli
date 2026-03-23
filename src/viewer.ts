@@ -123,7 +123,7 @@ body {
 }
 
 /* Table */
-.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .data-table th {
   text-align: left;
   padding: calc(var(--sp) * 2);
