@@ -342,6 +342,110 @@ charts:
     expect(files[0]).toEndWith("etc-evil.yaml");
   });
 
+  it("warns on truncated API response (max_tokens)", async () => {
+    const csvPath = writeFixture("trunc.csv", "x\n1\n");
+    const outDir = resolve(FIXTURES, "trunc-out");
+    mkdirSync(outDir, { recursive: true });
+
+    const mockYaml = `\`\`\`yaml
+name: trunc-spec
+title: Truncated
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 3
+  rows: auto
+charts:
+  - id: c1
+    type: kpi
+    query: "SELECT 1 as value"
+    position: [0, 0, 1, 1]
+\`\`\``;
+
+    const mockClient = {
+      messages: {
+        create: async () => ({
+          stop_reason: "max_tokens",
+          content: [{ type: "text" as const, text: mockYaml }],
+        }),
+      },
+    };
+
+    const origError = console.error;
+    const errors: string[] = [];
+    console.error = (...args: any[]) => errors.push(args.join(" "));
+    try {
+      const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
+      expect(files).toHaveLength(1);
+      expect(errors.some((e) => e.includes("truncated"))).toBe(true);
+    } finally {
+      console.error = origError;
+    }
+  });
+
+  it("deduplicates identical spec names", async () => {
+    const csvPath = writeFixture("dedup.csv", "x\n1\n");
+    const outDir = resolve(FIXTURES, "dedup-out");
+    mkdirSync(outDir, { recursive: true });
+
+    const block = (name: string) => `\`\`\`yaml
+name: ${name}
+title: Dedup Test
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 3
+  rows: auto
+charts:
+  - id: c1
+    type: kpi
+    query: "SELECT 1 as value"
+    position: [0, 0, 1, 1]
+\`\`\``;
+
+    const mockClient = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text" as const, text: block("same") + "\n" + block("same") }],
+        }),
+      },
+    };
+
+    const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
+    expect(files).toHaveLength(2);
+    expect(files[0]).toContain("same.yaml");
+    expect(files[1]).toContain("same-2.yaml");
+  });
+
+  it("skips specs whose name sanitizes to empty string", async () => {
+    const csvPath = writeFixture("emptyname.csv", "x\n1\n");
+    const outDir = resolve(FIXTURES, "emptyname-out");
+    mkdirSync(outDir, { recursive: true });
+
+    const mockResponse = `\`\`\`yaml
+name: "..."
+title: Dots Only
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 3
+  rows: auto
+charts:
+  - id: c1
+    type: kpi
+    query: "SELECT 1 as value"
+    position: [0, 0, 1, 1]
+\`\`\``;
+
+    const mockClient = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text" as const, text: mockResponse }],
+        }),
+      },
+    };
+
+    const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
+    expect(files).toHaveLength(0);
+  });
+
   it("generates multiple specs from a single response", async () => {
     const csvPath = writeFixture("multi.csv", "name,val\nA,1\nB,2\n");
     const outDir = resolve(FIXTURES, "multi-out");
