@@ -246,7 +246,7 @@ async function renderChart(chart) {
   if (!container) return;
 
   // For ECharts types, show loading on existing instance or set placeholder
-  if ((chart.type === 'bar' || chart.type === 'line') && chartInstances[chart.id]) {
+  if (['bar','line','pie','scatter','gauge'].includes(chart.type) && chartInstances[chart.id]) {
     chartInstances[chart.id].showLoading();
   } else {
     container.innerHTML = '<div class="chart-loading">Loading...</div>';
@@ -259,6 +259,12 @@ async function renderChart(chart) {
       renderKpi(container, chart, data);
     } else if (chart.type === 'table') {
       renderTable(container, chart, data);
+    } else if (chart.type === 'pie') {
+      renderPieChart(container, chart, data);
+    } else if (chart.type === 'scatter') {
+      renderScatterChart(container, chart, data);
+    } else if (chart.type === 'gauge') {
+      renderGaugeChart(container, chart, data);
     } else if (chart.type === 'bar' || chart.type === 'line') {
       renderEChart(container, chart, data);
     }
@@ -350,6 +356,115 @@ function renderEChart(container, chart, data) {
       symbolSize: chart.type === 'line' ? 6 : undefined,
     }],
   }, true); // true = notMerge, replace entire option
+
+  instance.hideLoading();
+}
+
+function renderPieChart(container, chart, data) {
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const pieData = data.map((r, i) => {
+    const total = data.length;
+    const opacity = 1 - (i / total) * 0.6;
+    return {
+      name: String(r[chart.x]),
+      value: Number(r[chart.y]),
+      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')' },
+    };
+  });
+
+  instance.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+    series: [{
+      type: 'pie',
+      radius: ['40%', '70%'],
+      center: ['50%', '50%'],
+      data: pieData,
+      itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
+      label: { fontSize: 11, color: '#737373' },
+      emphasis: { itemStyle: { shadowBlur: 0 } },
+    }],
+  }, true);
+
+  instance.hideLoading();
+}
+
+function renderScatterChart(container, chart, data) {
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const scatterData = data.map(r => [Number(r[chart.x]), Number(r[chart.y])]);
+
+  instance.setOption({
+    tooltip: { trigger: 'item', formatter: function(p) { return chart.x + ': ' + Number(p.value[0]).toLocaleString() + '<br>' + chart.y + ': ' + Number(p.value[1]).toLocaleString(); } },
+    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
+    xAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { lineStyle: { color: '#e2e2e2' } },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#f0f0f0' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#f0f0f0' } },
+    },
+    series: [{
+      type: 'scatter',
+      data: scatterData,
+      symbolSize: 8,
+      itemStyle: { color: '#2563eb' },
+    }],
+  }, true);
+
+  instance.hideLoading();
+}
+
+function renderGaugeChart(container, chart, data) {
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const row = data[0] || {};
+  const val = Number(row.value ?? row[Object.keys(row)[0]]);
+  const minVal = chart.min != null ? chart.min : 0;
+  const maxVal = chart.max != null ? chart.max : 100;
+
+  instance.setOption({
+    series: [{
+      type: 'gauge',
+      min: minVal,
+      max: maxVal,
+      data: [{ value: val }],
+      axisLine: { lineStyle: { width: 12, color: [[1, '#2563eb']] } },
+      axisTick: { show: false },
+      splitLine: { length: 8, lineStyle: { color: '#e2e2e2' } },
+      axisLabel: { fontSize: 11, color: '#737373' },
+      pointer: { width: 4, length: '60%', itemStyle: { color: '#1a1a1a' } },
+      detail: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', offsetCenter: [0, '70%'], formatter: function(v) { return formatValue(v, chart.format); } },
+      title: { show: false },
+    }],
+  }, true);
 
   instance.hideLoading();
 }

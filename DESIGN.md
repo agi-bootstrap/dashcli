@@ -135,13 +135,16 @@ All interactive elements (inputs, selects, buttons) must have a minimum height o
 |----------|-------|
 | Bar color | `--accent` (#2563eb) |
 | Line color | `--accent` (#2563eb) |
+| Pie style | Donut (40%/70% radius), accent with opacity variation per slice |
+| Scatter style | 8px symbols, `--accent`, value axes on both X/Y |
+| Gauge style | Single-value arc, 12px width, `--accent` fill, pointer in `--text` |
 | Line width | 2.5px |
 | Line style | Smooth, circle symbols (6px) |
 | Bar radius | `[4, 4, 0, 0]` (top corners) |
 | Grid padding | `{left: 16, right: 16, top: 16, bottom: 32, containLabel: true}` |
 | Axis labels | 11px, #737373 (matches `--text-muted`) |
 | Grid lines | #f0f0f0 |
-| Tooltip | axis trigger (bar), item trigger (line) |
+| Tooltip | axis trigger (bar), item trigger (line/scatter) |
 | Min container height | 180px |
 
 ## Anti-Patterns (Do Not)

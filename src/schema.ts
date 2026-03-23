@@ -15,14 +15,19 @@ export const FilterSpec = z.object({
 
 export const ChartSpec = z.object({
   id: z.string(),
-  type: z.enum(["bar", "line", "kpi", "table"]),
+  type: z.enum(["bar", "line", "kpi", "table", "pie", "scatter", "gauge"]),
   query: z.string(),
   position: Position,
   x: z.string().optional(),
   y: z.string().optional(),
   label: z.string().optional(),
   format: z.enum(["currency", "number", "percent"]).optional(),
-});
+  min: z.number().optional(),
+  max: z.number().optional(),
+}).refine(
+  (c) => !["pie", "scatter", "bar", "line"].includes(c.type) || (c.x != null && c.y != null),
+  { message: "x and y are required for pie, scatter, bar, and line charts" },
+);
 
 export const LayoutSpec = z.object({
   columns: z.number().default(3),

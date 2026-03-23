@@ -5,6 +5,12 @@ All notable changes to dashcli will be documented in this file.
 ## [0.1.1.0] - 2026-03-22
 
 ### Added
+- 3 new chart types: **pie** (donut), **scatter**, and **gauge** — dashcli now supports 7 chart types
+- Pie charts display proportions as a donut with accent-color opacity gradations
+- Scatter charts plot two numeric fields with formatted tooltips showing both axes
+- Gauge charts show a single metric against a configurable min/max range with formatted values
+- New `all-charts-dashboard.yaml` sample demonstrating all 7 chart types on a 3×3 grid
+- Schema now validates that pie, scatter, bar, and line charts include required x/y fields
 - DataSource interface abstracting data loading from file format
 - JSON file source adapter (array-of-objects → SQLite, with type inference)
 - Auto-detection of data source by file extension (.csv → CSV, .json → JSON)
@@ -15,6 +21,7 @@ All notable changes to dashcli will be documented in this file.
 - Exported files work fully offline with no server needed
 - Export date shown in subtitle for provenance tracking
 - `--out` flag validation (requires directory argument)
+- 29 new tests (71 total) covering schema validation and HTML rendering for all chart types
 - 18 new hardening tests across 6 files
 - 19 new tests: JSON adapter (9), auto-detection (8), table name derivation (4)
 
@@ -23,6 +30,8 @@ All notable changes to dashcli will be documented in this file.
 - Table name derivation centralized in `deriveTableName()` (strips only known extensions)
 
 ### Fixed
+- Axis label color consistency: bar/line/scatter charts now use #737373 (WCAG AA compliant)
+- Scatter tooltip shows both axis field names with formatted values
 - Escape single quotes in HTML output to prevent XSS (#22)
 - Mask SQL error details in API responses — return generic "Query failed" (#9)
 - Stop reflecting URL input in API error responses (#8)
