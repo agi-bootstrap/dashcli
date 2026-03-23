@@ -3,14 +3,14 @@ import { readFileSync } from "fs";
 
 export function loadCsv(csvPath: string): Database {
   const text = readFileSync(csvPath, "utf-8");
-  const lines = text.trim().split("\n");
+  const lines = text.trim().replace(/\r\n/g, "\n").split("\n");
   if (lines.length < 2) throw new Error(`CSV file is empty or has no data rows: ${csvPath}`);
 
   const headers = parseCsvLine(lines[0]);
   const rows = lines.slice(1).map(parseCsvLine);
 
   // Derive table name from filename (sales.csv → sales)
-  const tableName = csvPath.split("/").pop()!.replace(/\.csv$/i, "");
+  const tableName = escId(csvPath.split("/").pop()!.replace(/\.csv$/i, ""));
 
   const db = new Database(":memory:");
 
@@ -18,7 +18,7 @@ export function loadCsv(csvPath: string): Database {
   const colDefs = headers.map((h, i) => {
     const sample = rows[0]?.[i] ?? "";
     const type = inferSqliteType(sample);
-    return `"${h}" ${type}`;
+    return `"${escId(h)}" ${type}`;
   });
 
   db.run(`CREATE TABLE "${tableName}" (${colDefs.join(", ")})`);
@@ -73,7 +73,12 @@ function inferSqliteType(sample: string): string {
 function coerce(val: string, _header: string, sample: string): string | number | null {
   if (val === "") return null;
   const type = inferSqliteType(sample);
-  if (type === "INTEGER") return parseInt(val, 10);
-  if (type === "REAL") return parseFloat(val);
+  if (type === "INTEGER") { const n = parseInt(val, 10); return isNaN(n) ? val : n; }
+  if (type === "REAL") { const n = parseFloat(val); return isNaN(n) ? val : n; }
   return val;
+}
+
+/** Escape a SQL identifier by doubling internal quotes */
+function escId(s: string): string {
+  return s.replace(/"/g, '""');
 }

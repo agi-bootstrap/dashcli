@@ -35,12 +35,13 @@ export function loadDashboard(specPath: string): ServerContext {
 
   // Pre-compute distinct values for dropdown filters
   const dropdownValues = new Map<string, string[]>();
-  const tableName = csvPath.split("/").pop()!.replace(/\.csv$/i, "");
+  const tableName = csvPath.split("/").pop()!.replace(/\.csv$/i, "").replace(/"/g, '""');
   for (const filter of spec.filters) {
     if (filter.type === "dropdown") {
       try {
+        const col = filter.column.replace(/"/g, '""');
         const rows = db
-          .prepare(`SELECT DISTINCT "${filter.column}" FROM "${tableName}" ORDER BY "${filter.column}"`)
+          .prepare(`SELECT DISTINCT "${col}" FROM "${tableName}" ORDER BY "${col}"`)
           .all() as Record<string, unknown>[];
         dropdownValues.set(filter.id, rows.map((r) => String(r[filter.column])));
       } catch {
@@ -58,6 +59,7 @@ export function startServer(specPath: string, port: number = 3838) {
 
   const server = Bun.serve({
     port,
+    hostname: "127.0.0.1",
     fetch(req) {
       const url = new URL(req.url);
       const path = url.pathname;

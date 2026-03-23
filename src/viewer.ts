@@ -171,7 +171,11 @@ ${spec.charts.map((chart) => renderChartCard(chart)).join("\n")}
 </div>
 
 <script>
-const SPEC = ${JSON.stringify(spec)};
+const SPEC = ${JSON.stringify(spec).replace(/</g, '\\u003c')};
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
 function getFilterValues() {
   const vals = {};
@@ -251,7 +255,7 @@ async function renderChart(chart) {
 function renderKpi(container, chart, data) {
   const row = data[0] || {};
   const val = row.value ?? row[Object.keys(row)[0]];
-  container.innerHTML = '<div class="kpi-value">' + formatValue(val, chart.format) + '</div>';
+  container.innerHTML = '<div class="kpi-value">' + esc(formatValue(val, chart.format)) + '</div>';
 }
 
 function renderTable(container, chart, data) {
@@ -261,14 +265,14 @@ function renderTable(container, chart, data) {
   }
   const cols = Object.keys(data[0]);
   let html = '<table class="data-table"><thead><tr>';
-  for (const col of cols) html += '<th>' + col.replace(/_/g, ' ') + '</th>';
+  for (const col of cols) html += '<th>' + esc(col.replace(/_/g, ' ')) + '</th>';
   html += '</tr></thead><tbody>';
   for (const row of data.slice(0, 50)) {
     html += '<tr>';
     for (const col of cols) {
       const v = row[col];
       const isNum = typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)));
-      html += '<td>' + (isNum ? Number(v).toLocaleString() : (v ?? '')) + '</td>';
+      html += '<td>' + (isNum ? Number(v).toLocaleString() : esc(v ?? '')) + '</td>';
     }
     html += '</tr>';
   }
