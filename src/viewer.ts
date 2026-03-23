@@ -120,6 +120,7 @@ body {
   color: var(--text);
   text-align: center;
   margin-top: calc(var(--sp) * 8);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Table */
@@ -537,15 +538,16 @@ function renderFilterBar(filters: FilterSpec[]): string {
   const groups = filters.map((f) => {
     if (f.type === "date_range") {
       const [start, end] = Array.isArray(f.default) ? f.default : ["", ""];
+      const labelText = escHtml(f.id.replace(/_/g, " "));
       return `<div class="filter-group">
-  <span class="filter-label">${escHtml(f.id.replace(/_/g, " "))}</span>
-  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-start" value="${escHtml(start)}">
+  <label class="filter-label" for="filter-${escHtml(f.id)}-start">${labelText}</label>
+  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-start" value="${escHtml(start)}" aria-label="${labelText} start">
   <span class="filter-sep">&rarr;</span>
-  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-end" value="${escHtml(end)}">
+  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-end" value="${escHtml(end)}" aria-label="${labelText} end">
 </div>`;
     } else {
       return `<div class="filter-group">
-  <span class="filter-label">${escHtml(f.id.replace(/_/g, " "))}</span>
+  <label class="filter-label" for="filter-${escHtml(f.id)}">${escHtml(f.id.replace(/_/g, " "))}</label>
   <select class="filter-input" id="filter-${escHtml(f.id)}">
     <option value="all">All</option>
   </select>
