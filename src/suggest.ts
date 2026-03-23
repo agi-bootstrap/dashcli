@@ -2,21 +2,26 @@ import Anthropic from "@anthropic-ai/sdk";
 import { resolve, dirname, basename, relative } from "path";
 import { writeFileSync, mkdirSync } from "fs";
 import { DashboardSpec } from "./schema";
-import { loadDataSource, deriveTableName } from "./datasource";
+import { loadDataSource } from "./datasource";
 import type { Database } from "bun:sqlite";
 import * as yaml from "yaml";
+
+function escId(s: string): string {
+  return s.replace(/"/g, '""');
+}
 
 /**
  * Analyze a data source's schema: column names, types, cardinality, value ranges.
  */
 export function buildSchemaSummary(db: Database, tableName: string): string {
-  const columns = db.prepare(`PRAGMA table_info("${tableName}")`).all() as {
+  const safeTable = escId(tableName);
+  const columns = db.prepare(`PRAGMA table_info("${safeTable}")`).all() as {
     name: string;
     type: string;
   }[];
 
   const rowCount = (
-    db.prepare(`SELECT COUNT(*) as cnt FROM "${tableName}"`).get() as {
+    db.prepare(`SELECT COUNT(*) as cnt FROM "${safeTable}"`).get() as {
       cnt: number;
     }
   ).cnt;
@@ -24,10 +29,11 @@ export function buildSchemaSummary(db: Database, tableName: string): string {
   const lines: string[] = [`Table: ${tableName}`, `Rows: ${rowCount}`, `Columns:`];
 
   for (const col of columns) {
+    const safeCol = escId(col.name);
     const distinct = (
       db
         .prepare(
-          `SELECT COUNT(DISTINCT "${col.name}") as cnt FROM "${tableName}"`,
+          `SELECT COUNT(DISTINCT "${safeCol}") as cnt FROM "${safeTable}"`,
         )
         .get() as { cnt: number }
     ).cnt;
@@ -37,14 +43,14 @@ export function buildSchemaSummary(db: Database, tableName: string): string {
     if (col.type === "INTEGER" || col.type === "REAL") {
       const stats = db
         .prepare(
-          `SELECT MIN("${col.name}") as mn, MAX("${col.name}") as mx, ROUND(AVG("${col.name}"), 2) as avg FROM "${tableName}"`,
+          `SELECT MIN("${safeCol}") as mn, MAX("${safeCol}") as mx, ROUND(AVG("${safeCol}"), 2) as avg FROM "${safeTable}"`,
         )
         .get() as { mn: number; mx: number; avg: number };
       detail += ` — range: ${stats.mn} to ${stats.mx}, avg: ${stats.avg}`;
     } else {
       const samples = db
         .prepare(
-          `SELECT DISTINCT "${col.name}" as val FROM "${tableName}" LIMIT 10`,
+          `SELECT DISTINCT "${safeCol}" as val FROM "${safeTable}" LIMIT 10`,
         )
         .all() as { val: string }[];
       const vals = samples.map((s) => s.val);
@@ -107,7 +113,7 @@ Rules:
  */
 export function parseYamlBlocks(text: string): string[] {
   const blocks: string[] = [];
-  const regex = /```yaml\n([\s\S]*?)```/g;
+  const regex = /```yaml[ \t]*\r?\n([\s\S]*?)```/g;
   let match;
   while ((match = regex.exec(text)) !== null) {
     blocks.push(match[1].trim());
@@ -145,8 +151,12 @@ export async function suggestDashboards(
   const resolvedSource = resolve(sourcePath);
   const { db, tableName } = loadDataSource(resolvedSource);
 
-  const schemaSummary = buildSchemaSummary(db, tableName);
-  db.close();
+  let schemaSummary: string;
+  try {
+    schemaSummary = buildSchemaSummary(db, tableName);
+  } finally {
+    db.close();
+  }
 
   const client = options.client ?? new Anthropic();
 
@@ -162,6 +172,10 @@ export async function suggestDashboards(
     ],
   });
 
+  if (response.stop_reason === "max_tokens") {
+    console.error("  Warning: API response was truncated. Some specs may be incomplete.");
+  }
+
   const responseText = response.content
     .filter((b): b is Anthropic.TextBlock => b.type === "text")
     .map((b) => b.text)
@@ -176,11 +190,13 @@ export async function suggestDashboards(
     ? resolve(options.outDir)
     : dirname(resolvedSource);
   mkdirSync(outDir, { recursive: true });
-  const sourceRelative = `./${basename(resolvedSource)}`;
+  const sourceRelPath = relative(outDir, resolvedSource);
+  const sourceRef = sourceRelPath.startsWith(".") ? sourceRelPath : `./${sourceRelPath}`;
   const savedFiles: string[] = [];
+  const usedNames = new Set<string>();
 
   for (const block of yamlBlocks) {
-    const replaced = block.replace(/<SOURCE_PLACEHOLDER>/g, sourceRelative);
+    const replaced = block.replace(/<SOURCE_PLACEHOLDER>/g, sourceRef);
     let parsed: unknown;
     try {
       parsed = yaml.parse(replaced);
@@ -197,11 +213,18 @@ export async function suggestDashboards(
 
     const spec = result.data;
     // Sanitize LLM-generated name to prevent path traversal
-    const safeName = spec.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/^-+|-+$/g, "");
+    let safeName = spec.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/^-+|-+$/g, "");
     if (!safeName) {
       console.error(`  Skipping spec with invalid name: "${spec.name}"`);
       continue;
     }
+    // Deduplicate names
+    if (usedNames.has(safeName)) {
+      let i = 2;
+      while (usedNames.has(`${safeName}-${i}`)) i++;
+      safeName = `${safeName}-${i}`;
+    }
+    usedNames.add(safeName);
     const outPath = resolve(outDir, `${safeName}.yaml`);
     writeFileSync(outPath, replaced);
     savedFiles.push(outPath);

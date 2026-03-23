@@ -206,7 +206,7 @@ charts:
     expect(existsSync(files[0])).toBe(true);
 
     const content = readFileSync(files[0], "utf-8");
-    expect(content).toContain("source: ./sales-test.csv");
+    expect(content).toContain("source: ../sales-test.csv");
     expect(content).not.toContain("<SOURCE_PLACEHOLDER>");
 
     const parsed = parseYaml(content);
