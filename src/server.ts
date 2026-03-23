@@ -110,7 +110,8 @@ export function startServer(specPath: string, port: number = 3838) {
           const data = executeChartQuery(db, chart.query, spec.filters, filterValues);
           return Response.json(data);
         } catch (err: any) {
-          return Response.json({ error: err.message }, { status: 500 });
+          console.error("Chart query error:", err.message);
+          return Response.json({ error: "Query failed" }, { status: 500 });
         }
       }
 
