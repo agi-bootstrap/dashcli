@@ -139,6 +139,7 @@ body {
   border-bottom: 1px solid #f0f0f0;
   color: var(--text-secondary);
 }
+.data-table th.num, .data-table td.num { text-align: right; }
 .data-table tbody tr:hover { background: #f8f9fa; }
 
 /* Loading / Error states */
@@ -291,15 +292,21 @@ function renderTable(container, chart, data) {
     return;
   }
   const cols = Object.keys(data[0]);
+  // Detect numeric columns from first row
+  const numCols = new Set();
+  for (const col of cols) {
+    const v = data[0][col];
+    if (typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)))) numCols.add(col);
+  }
   let html = '<table class="data-table"><thead><tr>';
-  for (const col of cols) html += '<th>' + esc(col.replace(/_/g, ' ')) + '</th>';
+  for (const col of cols) html += '<th' + (numCols.has(col) ? ' class="num"' : '') + '>' + esc(col.replace(/_/g, ' ')) + '</th>';
   html += '</tr></thead><tbody>';
   for (const row of data.slice(0, 50)) {
     html += '<tr>';
     for (const col of cols) {
       const v = row[col];
-      const isNum = typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)));
-      html += '<td>' + (isNum ? Number(v).toLocaleString() : esc(v ?? '')) + '</td>';
+      const isNum = numCols.has(col);
+      html += '<td' + (isNum ? ' class="num"' : '') + '>' + (isNum ? Number(v).toLocaleString() : esc(v ?? '')) + '</td>';
     }
     html += '</tr>';
   }
