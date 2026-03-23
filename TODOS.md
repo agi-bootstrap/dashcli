@@ -9,18 +9,6 @@ Effort: M (human: ~1 week / CC: ~1-2 hours)
 Depends on: Smart Schema Summary (Phase 1)
 Source: /plan-ceo-review 2026-03-22
 
-## P4 — Deferred (Low Priority)
-
-### Missing favicon
-**Priority:** P4
-Server returns 404 for `/favicon.ico` on every page load, cluttering console.
-Source: /qa 2026-03-22
-
-### Empty charts show no "No data" message
-**Priority:** P4
-When filters yield no results, KPIs show "—" and table shows "No data", but ECharts bar/line charts show blank white area.
-Source: /qa 2026-03-22
-
 ## Completed
 
 ### `dashcli init` — Zero-config project scaffolding
@@ -31,3 +19,11 @@ Critical for Show HN launch — first-run experience determines adoption.
 ### Create DESIGN.md via /design-consultation
 Formal design system: typography scale, color tokens (all 4 themes), spacing system, component patterns.
 **Completed:** v0.1.0.0 (2026-03-22) — extracted from /design-review audit
+
+### Missing favicon
+Server returns 404 for `/favicon.ico` on every page load, cluttering console.
+**Completed:** v0.1.1.0 (2026-03-22) — returns 204 for /favicon.ico
+
+### Empty charts show no "No data" message
+When filters yield no results, ECharts bar/line charts showed blank white area.
+**Completed:** v0.1.1.0 (2026-03-22) — empty data guard shows "No data" message
