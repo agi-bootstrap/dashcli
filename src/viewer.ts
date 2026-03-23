@@ -71,8 +71,9 @@ body {
 .filter-input {
   border: 1px solid var(--border);
   border-radius: calc(var(--sp) * 1);
-  padding: calc(var(--sp) * 1.5) calc(var(--sp) * 2.5);
+  padding: calc(var(--sp) * 2.5) calc(var(--sp) * 2.5);
   font-size: 13px;
+  min-height: 44px;
   background: var(--surface);
   color: var(--text);
   outline: none;
