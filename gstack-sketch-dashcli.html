@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dashcli — Web Viewer Wireframe</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: #fafafa; color: #333; padding: 20px; }
+
+  /* Sketch aesthetic — thin gray borders, no color fills */
+  .sketch-box { border: 1.5px solid #bbb; border-radius: 4px; background: #fff; }
+
+  /* Terminal panel (top) — shows the CLI interaction */
+  .terminal {
+    background: #1e1e1e; color: #d4d4d4; border-radius: 8px;
+    padding: 16px 20px; font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 13px; line-height: 1.6; margin-bottom: 24px;
+    max-width: 720px;
+  }
+  .terminal .prompt { color: #6a9955; }
+  .terminal .cmd { color: #dcdcaa; }
+  .terminal .output { color: #9cdcfe; }
+  .terminal .url { color: #ce9178; text-decoration: underline; }
+
+  /* Dashboard viewer (main) */
+  .viewer-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px; border-bottom: 1.5px solid #bbb;
+    margin-bottom: 20px; background: #fff; border-radius: 8px 8px 0 0;
+  }
+  .viewer-header h1 { font-size: 18px; font-weight: 600; }
+  .viewer-header .actions { display: flex; gap: 8px; }
+  .viewer-header .actions button {
+    border: 1.5px solid #bbb; border-radius: 4px; padding: 6px 14px;
+    background: #fff; font-size: 12px; cursor: pointer; color: #555;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex; gap: 12px; padding: 12px 20px;
+    border-bottom: 1px dashed #ccc; margin-bottom: 20px; align-items: center;
+  }
+  .filter-bar label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-bar select, .filter-bar input {
+    border: 1.5px solid #bbb; border-radius: 4px; padding: 6px 10px;
+    font-size: 13px; background: #fff; color: #333;
+  }
+
+  /* Dashboard grid */
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 16px;
+    padding: 0 20px 20px;
+  }
+
+  .card {
+    border: 1.5px solid #bbb; border-radius: 6px; background: #fff;
+    padding: 16px; min-height: 180px; position: relative;
+  }
+  .card-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: #888; margin-bottom: 12px; font-weight: 600;
+  }
+
+  /* KPI cards */
+  .kpi { text-align: center; display: flex; flex-direction: column; justify-content: center; }
+  .kpi .value { font-size: 36px; font-weight: 700; color: #333; }
+  .kpi .delta { font-size: 13px; color: #888; margin-top: 4px; }
+  .kpi .delta.up { color: #2d7d46; }
+  .kpi .delta.down { color: #c0392b; }
+
+  /* Chart placeholders — intentionally rough, hand-drawn style */
+  .chart-area { position: relative; height: 120px; margin-top: 8px; }
+
+  /* Bar chart sketch */
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 100%; padding-bottom: 20px; }
+  .bar-chart .bar {
+    flex: 1; background: #ddd; border: 1px solid #bbb; border-radius: 2px 2px 0 0;
+    position: relative;
+  }
+  .bar-chart .bar-label {
+    position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; color: #999; white-space: nowrap;
+  }
+
+  /* Line chart sketch */
+  .line-chart { position: relative; height: 100%; }
+  .line-chart svg { width: 100%; height: 100%; }
+  .line-chart .axis { stroke: #ccc; stroke-width: 1; }
+  .line-chart .line { fill: none; stroke: #999; stroke-width: 2; stroke-dasharray: 4,2; }
+
+  /* Table sketch */
+  .table-sketch { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .table-sketch th {
+    text-align: left; padding: 8px; border-bottom: 2px solid #bbb;
+    font-size: 11px; text-transform: uppercase; color: #888; letter-spacing: 0.3px;
+  }
+  .table-sketch td { padding: 8px; border-bottom: 1px solid #eee; color: #555; }
+
+  /* Wide cards */
+  .span-2 { grid-column: span 2; }
+  .span-3 { grid-column: span 3; }
+
+  /* Annotation callouts */
+  .annotation {
+    position: absolute; top: -10px; right: -10px;
+    background: #fffde7; border: 1px solid #f0e68c; border-radius: 4px;
+    padding: 3px 8px; font-size: 10px; color: #666;
+    transform: rotate(2deg); font-style: italic;
+  }
+
+  .footer-note {
+    text-align: center; padding: 20px; font-size: 12px; color: #aaa;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<!-- Terminal: shows how the user created this dashboard -->
+<div class="terminal">
+  <div><span class="prompt">$ </span><span class="cmd">dashcli create</span> "Revenue by region with date filter, drill-down by product" --source pg://analytics</div>
+  <div class="output" style="margin-top: 8px;">
+    ✓ Connected to pg://analytics (42 tables)<br>
+    ✓ Generated dashboard: revenue-by-region<br>
+    ✓ 4 charts + 1 filter + 1 table<br>
+    ▸ Serving at <span class="url">http://localhost:3838/d/revenue-by-region</span>
+  </div>
+</div>
+
+<!-- Dashboard Viewer -->
+<div class="sketch-box" style="border-radius: 8px; overflow: hidden;">
+
+  <!-- Header -->
+  <div class="viewer-header">
+    <div>
+      <h1>Revenue by Region</h1>
+      <!-- design decision: show the source command so users know how to reproduce -->
+      <div style="font-size: 11px; color: #999; margin-top: 2px; font-family: monospace;">
+        dashcli &middot; revenue-by-region.yaml &middot; last updated 2 min ago
+      </div>
+    </div>
+    <div class="actions">
+      <button>Export HTML</button>
+      <button>Edit Spec</button>
+      <button style="position: relative;">
+        Share
+        <span class="annotation">Phase 2</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <label>Date Range</label>
+    <input type="text" value="2026-01-01" style="width: 100px;">
+    <span style="color: #ccc;">→</span>
+    <input type="text" value="2026-03-22" style="width: 100px;">
+    <label style="margin-left: 16px;">Region</label>
+    <select>
+      <option>All Regions</option>
+      <option>North America</option>
+      <option>Europe</option>
+      <option>Asia Pacific</option>
+    </select>
+  </div>
+
+  <!-- Dashboard grid -->
+  <div class="dashboard-grid">
+
+    <!-- KPI cards (row 1) -->
+    <div class="card kpi">
+      <div class="card-title">Total Revenue</div>
+      <div class="value">$4.2M</div>
+      <div class="delta up">↑ 12% vs prior period</div>
+    </div>
+    <div class="card kpi">
+      <div class="card-title">Active Regions</div>
+      <div class="value">7</div>
+      <div class="delta">of 9 total</div>
+    </div>
+    <div class="card kpi">
+      <div class="card-title">Avg Deal Size</div>
+      <div class="value">$38K</div>
+      <div class="delta down">↓ 3% vs prior period</div>
+    </div>
+
+    <!-- Bar chart (row 2, spans 2) -->
+    <div class="card span-2">
+      <div class="card-title">Revenue by Region</div>
+      <div class="chart-area">
+        <div class="bar-chart">
+          <div class="bar" style="height: 90%;"><span class="bar-label">NA</span></div>
+          <div class="bar" style="height: 65%;"><span class="bar-label">EU</span></div>
+          <div class="bar" style="height: 45%;"><span class="bar-label">APAC</span></div>
+          <div class="bar" style="height: 30%;"><span class="bar-label">LATAM</span></div>
+          <div class="bar" style="height: 20%;"><span class="bar-label">MEA</span></div>
+          <div class="bar" style="height: 55%;"><span class="bar-label">UK</span></div>
+          <div class="bar" style="height: 15%;"><span class="bar-label">ANZ</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line chart (row 2) -->
+    <div class="card">
+      <div class="card-title">Revenue Trend (12mo)</div>
+      <div class="chart-area">
+        <div class="line-chart">
+          <svg viewBox="0 0 200 100" preserveAspectRatio="none">
+            <line class="axis" x1="0" y1="99" x2="200" y2="99"/>
+            <line class="axis" x1="1" y1="0" x2="1" y2="100"/>
+            <polyline class="line" points="0,80 20,75 40,60 60,65 80,50 100,45 120,40 140,35 160,30 180,25 200,20"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table (row 3, spans full) -->
+    <div class="card span-3">
+      <div class="card-title">Drill-down: Revenue by Product Category</div>
+      <table class="table-sketch">
+        <thead>
+          <tr>
+            <th>Region</th>
+            <th>Product Category</th>
+            <th>Revenue</th>
+            <th>Deals</th>
+            <th>Avg Size</th>
+            <th>QoQ Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>North America</td><td>Enterprise SaaS</td><td>$1.8M</td><td>47</td><td>$38K</td><td style="color: #2d7d46;">+15%</td></tr>
+          <tr><td>North America</td><td>SMB</td><td>$420K</td><td>124</td><td>$3.4K</td><td style="color: #2d7d46;">+8%</td></tr>
+          <tr><td>Europe</td><td>Enterprise SaaS</td><td>$890K</td><td>23</td><td>$39K</td><td style="color: #c0392b;">-2%</td></tr>
+          <tr><td>Asia Pacific</td><td>Enterprise SaaS</td><td>$650K</td><td>18</td><td>$36K</td><td style="color: #2d7d46;">+22%</td></tr>
+          <tr><td style="color: #ccc;">...</td><td style="color: #ccc;">12 more rows</td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer-note">
+  wireframe sketch &mdash; dashcli web viewer &mdash; intentionally rough
+</div>
+
+</body>
+</html>
