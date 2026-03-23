@@ -264,7 +264,11 @@ function renderTable(container, chart, data) {
   html += '</tr></thead><tbody>';
   for (const row of data.slice(0, 50)) {
     html += '<tr>';
-    for (const col of cols) html += '<td>' + (row[col] ?? '') + '</td>';
+    for (const col of cols) {
+      const v = row[col];
+      const isNum = typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)));
+      html += '<td>' + (isNum ? Number(v).toLocaleString() : (v ?? '')) + '</td>';
+    }
     html += '</tr>';
   }
   html += '</tbody></table>';
@@ -287,7 +291,7 @@ function renderEChart(container, chart, data) {
 
   instance.setOption({
     tooltip: { trigger: chart.type === 'bar' ? 'axis' : 'item' },
-    grid: { left: 48, right: 16, top: 16, bottom: 32 },
+    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
     xAxis: {
       type: 'category',
       data: xData,
