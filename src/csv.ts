@@ -10,7 +10,7 @@ export function loadCsv(csvPath: string): Database {
   const rows = lines.slice(1).map(parseCsvLine);
 
   // Derive table name from filename (sales.csv → sales)
-  const tableName = escId(csvPath.split("/").pop()!.replace(/\.csv$/i, ""));
+  const tableName = deriveTableName(csvPath);
 
   const db = new Database(":memory:");
 
@@ -76,6 +76,11 @@ function coerce(val: string, _header: string, sample: string): string | number |
   if (type === "INTEGER") { const n = parseInt(val, 10); return isNaN(n) ? val : n; }
   if (type === "REAL") { const n = parseFloat(val); return isNaN(n) ? val : n; }
   return val;
+}
+
+/** Derive a SQL-safe table name from a CSV file path */
+export function deriveTableName(csvPath: string): string {
+  return escId(csvPath.split("/").pop()!.replace(/\.csv$/i, ""));
 }
 
 /** Escape a SQL identifier by doubling internal quotes */

@@ -43,7 +43,7 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.header h1 { font-size: 22px; font-weight: 600; }
+.header h1 { font-size: 22px; font-weight: 600; line-height: 1.2; }
 .header .subtitle {
   font-size: 12px;
   color: var(--text-muted);
@@ -297,11 +297,20 @@ function renderTable(container, chart, data) {
     html += '</tr>';
   }
   html += '</tbody></table>';
-  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#999;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
+  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#737373;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
   container.innerHTML = html;
 }
 
 function renderEChart(container, chart, data) {
+  if (!data.length) {
+    if (chartInstances[chart.id]) {
+      chartInstances[chart.id].dispose();
+      delete chartInstances[chart.id];
+    }
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+
   let instance = chartInstances[chart.id];
   if (!instance) {
     container.innerHTML = '';
@@ -320,13 +329,13 @@ function renderEChart(container, chart, data) {
     xAxis: {
       type: 'category',
       data: xData,
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { lineStyle: { color: '#e2e2e2' } },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { show: false },
       splitLine: { lineStyle: { color: '#f0f0f0' } },
     },
@@ -421,5 +430,6 @@ function escHtml(s: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

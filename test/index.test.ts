@@ -70,6 +70,38 @@ describe("dashcli CLI", () => {
     });
   });
 
+  describe("--port validation", () => {
+    it("rejects non-numeric port", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "abc"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects port 0", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "0"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects port above 65535", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "70000"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects missing port value", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+
+    it("rejects fractional port", () => {
+      const { stderr, exitCode } = run(["serve", "sample/sales-dashboard.yaml", "--port", "3838.5"]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("Invalid port");
+    });
+  });
+
   describe("export command", () => {
     const outDir = resolve(root, "test-export-out");
 

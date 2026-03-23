@@ -15,6 +15,7 @@ All notable changes to dashcli will be documented in this file.
 - Exported files work fully offline with no server needed
 - Export date shown in subtitle for provenance tracking
 - `--out` flag validation (requires directory argument)
+- 18 new hardening tests across 6 files
 - 19 new tests: JSON adapter (9), auto-detection (8), table name derivation (4)
 
 ### Changed
@@ -22,7 +23,20 @@ All notable changes to dashcli will be documented in this file.
 - Table name derivation centralized in `deriveTableName()` (strips only known extensions)
 
 ### Fixed
+- Escape single quotes in HTML output to prevent XSS (#22)
+- Mask SQL error details in API responses — return generic "Query failed" (#9)
+- Stop reflecting URL input in API error responses (#8)
+- Add security headers (X-Content-Type-Options, X-Frame-Options) to all responses (#10)
+- Return 204 for /favicon.ico to suppress browser console 404 noise (#14)
+- Validate --port flag as integer in 1-65535 range (#4)
+- Show "No data" message for empty bar/line charts (#15)
 - Non-functional filter bar hidden in exported HTML (filters require a server)
+
+### Changed
+- Deduplicate table name derivation between csv.ts and server.ts (#16)
+- Axis label color #999 → #737373 to match design system --text-muted token
+- Pagination text color #999 → #737373 for consistency
+- H1 line-height set to 1.2 per DESIGN.md
 
 ## [0.1.0.0] - 2026-03-22
 

@@ -82,7 +82,15 @@ if (command === "create") {
   }
 
   const portFlag = args.indexOf("--port");
-  const port = portFlag !== -1 ? parseInt(args[portFlag + 1], 10) : 3838;
+  let port = 3838;
+  if (portFlag !== -1) {
+    const raw = args[portFlag + 1];
+    port = Number(raw);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      console.error(`Error: Invalid port "${raw ?? ""}". Must be an integer between 1 and 65535.`);
+      process.exit(1);
+    }
+  }
 
   startServer(resolved, port);
 
