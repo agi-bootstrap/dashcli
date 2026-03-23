@@ -79,6 +79,7 @@ body {
   outline: none;
 }
 .filter-input:focus { border-color: var(--accent); }
+.filter-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .filter-sep { color: var(--text-muted); font-size: 12px; }
 
 /* Dashboard grid */
