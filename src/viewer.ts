@@ -329,13 +329,13 @@ function renderEChart(container, chart, data) {
     xAxis: {
       type: 'category',
       data: xData,
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { lineStyle: { color: '#e2e2e2' } },
       axisTick: { show: false },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { show: false },
       splitLine: { lineStyle: { color: '#f0f0f0' } },
     },
