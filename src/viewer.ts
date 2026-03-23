@@ -400,18 +400,18 @@ function renderScatterChart(container, chart, data) {
   const scatterData = data.map(r => [Number(r[chart.x]), Number(r[chart.y])]);
 
   instance.setOption({
-    tooltip: { trigger: 'item', formatter: function(p) { return p.value[0] + ', ' + p.value[1]; } },
+    tooltip: { trigger: 'item', formatter: function(p) { return chart.x + ': ' + Number(p.value[0]).toLocaleString() + '<br>' + chart.y + ': ' + Number(p.value[1]).toLocaleString(); } },
     grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
     xAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { lineStyle: { color: '#e2e2e2' } },
       axisTick: { show: false },
       splitLine: { lineStyle: { color: '#f0f0f0' } },
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       axisLine: { show: false },
       splitLine: { lineStyle: { color: '#f0f0f0' } },
     },
@@ -450,7 +450,7 @@ function renderGaugeChart(container, chart, data) {
       axisLine: { lineStyle: { width: 12, color: [[1, '#2563eb']] } },
       axisTick: { show: false },
       splitLine: { length: 8, lineStyle: { color: '#e2e2e2' } },
-      axisLabel: { fontSize: 11, color: '#999' },
+      axisLabel: { fontSize: 11, color: '#737373' },
       pointer: { width: 4, length: '60%', itemStyle: { color: '#1a1a1a' } },
       detail: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', offsetCenter: [0, '70%'], formatter: function(v) { return formatValue(v, chart.format); } },
       title: { show: false },
