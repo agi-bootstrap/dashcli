@@ -30,13 +30,14 @@ The emotional experience: magic that respects your intelligence. Not flashy demo
 | 1 | Smart Schema Summary | S | ACCEPTED | Makes NL-to-spec dramatically smarter for ~30 min CC effort |
 | 2 | `dashcli theme` | S | ACCEPTED | Polished output builds stakeholder trust |
 | 3 | `dashcli watch` (live reload) | S | ACCEPTED | File watcher + WebSocket, ~15 min CC effort, developer delight |
-| 4 | `dashcli suggest` | M | DEFERRED | Validate core first, add intelligence layer after |
+| 4 | `dashcli suggest` | M | ACCEPTED (shipped v0.1.2.0) | Pulled forward from Phase 2; uses Claude API to generate 3-5 dashboard specs from a CSV/JSON data source |
 | 5 | `dashcli init` (scaffolding) | S | DEFERRED | Focus MVP on core create/serve/export loop |
 
 ## Accepted Scope (added to this plan)
 - Smart Schema Summary: auto-introspect tables, row counts, column types, sample values, relationships. Runs implicitly during `dashcli create --source ...` (no separate connect command needed)
 - `dashcli theme`: 4 built-in themes (corporate, dark, minimal, colorful), reads DESIGN.md if present
 - `dashcli watch` / `--watch` flag: file watcher + WebSocket auto-refresh on spec changes
+- `dashcli suggest <source>`: AI-powered dashboard generation — analyzes a CSV/JSON data source via Claude API and writes 3-5 validated YAML dashboard specs. Requires `ANTHROPIC_API_KEY`. (Shipped v0.1.2.0)
 
 ## Architecture Decisions (from Sections 1-11)
 
@@ -88,7 +89,7 @@ All 13 failure modes now have: rescue action, user-facing message, logging, and 
 
 - **Phase 0** — Validation prototype (CSV + 3 charts). Show Nina (data scientist on the team, primary target user). Success = she asks to use it on real data.
 - **Phase 1 (MVP)** — Full CLI (create, edit, serve, export, watch) + web viewer (6 charts, themes, profiling) + MCP server + Postgres/CSV connectors + Smart Schema Summary. Effort: human ~6 weeks / CC (Claude Code agent hours) ~10-18 hours (base ~8-16h + ~2-4h for accepted scope additions: schema summary, theme, watch). Note: 6 weeks assumes heavy CC delegation; break into sub-milestones during /plan-eng-review.
-- **Phase 2** — `dashcli suggest`, `dashcli init`, more data sources, more chart types, `dashcli publish`, query caching.
+- **Phase 2** — `dashcli init`, more data sources, more chart types, `dashcli publish`, query caching. (`dashcli suggest` pulled forward — shipped in v0.1.2.0)
 - **Phase 3** (contingent on Phase 1-2 traction) — Auth, sharing, collaboration, scheduled refresh. Hosted SaaS is exploratory and implies a different product/infrastructure — evaluate after Phase 2 metrics.
 
 **Note:** The 10x vision (autonomous data analyst, proactive discovery, dashboard retirement) is a North Star for Phase 4+. Phases 1-3 intentionally do not pursue autonomy or proactive behavior.
@@ -102,5 +103,5 @@ Design Review: NOT RUN — recommended (UI scope detected)
 ```
 
 ## Deferred to TODOS.md
-- `dashcli suggest`: AI-powered dashboard recommendations based on schema analysis (Phase 2)
+- ~~`dashcli suggest`: AI-powered dashboard recommendations based on schema analysis~~ (shipped in v0.1.2.0)
 - `dashcli init`: zero-config project scaffolding with sample dashboard (Phase 2)
