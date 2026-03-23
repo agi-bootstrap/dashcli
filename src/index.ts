@@ -2,6 +2,7 @@
 
 import { resolve } from "path";
 import { startServer } from "./server";
+import { exportDashboard } from "./export";
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "fs";
 
 const args = process.argv.slice(2);
@@ -14,13 +15,16 @@ function usage() {
   Usage:
     dashcli create [name]    Create a sample dashboard
     dashcli serve <spec>     Serve a dashboard in the browser
+    dashcli export <spec>    Export a self-contained HTML file
 
   Options:
     --port <n>               Port for web viewer (default: 3838)
+    --out <dir>              Output directory for export (default: spec dir)
 
   Examples:
     dashcli create my-dashboard
     dashcli serve dashboards/my-dashboard.yaml
+    dashcli export dashboards/my-dashboard.yaml --out dist/
 `);
 }
 
@@ -81,6 +85,32 @@ if (command === "create") {
   const port = portFlag !== -1 ? parseInt(args[portFlag + 1], 10) : 3838;
 
   startServer(resolved, port);
+
+} else if (command === "export") {
+  const specPath = args[1];
+  if (!specPath) {
+    console.error("Error: Provide a path to a dashboard YAML spec.");
+    console.error("  Usage: dashcli export <spec.yaml> [--out dir]");
+    process.exit(1);
+  }
+
+  const resolved = resolve(specPath);
+  if (!existsSync(resolved)) {
+    console.error(`Error: File not found: ${specPath}`);
+    process.exit(1);
+  }
+
+  const outFlag = args.indexOf("--out");
+  if (outFlag !== -1 && !args[outFlag + 1]) {
+    console.error("Error: --out requires a directory argument.");
+    process.exit(1);
+  }
+  const outDir = outFlag !== -1 ? resolve(args[outFlag + 1]) : undefined;
+
+  exportDashboard(resolved, outDir).catch((err) => {
+    console.error(`Export failed: ${err.message}`);
+    process.exit(1);
+  });
 
 } else {
   console.error(`Unknown command: ${command}`);
