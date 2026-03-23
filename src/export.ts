@@ -98,10 +98,11 @@ async function populateDropdowns() {
     '<div class="filter-bar" style="display:none">'
   );
 
-  // Update subtitle to indicate this is an export
+  // Update subtitle to indicate this is an export with timestamp
+  const exportDate = new Date().toISOString().slice(0, 10);
   html = html.replace(
     /dashcli &middot;/,
-    "dashcli export &middot;"
+    `dashcli export &middot; ${exportDate} &middot;`
   );
 
   // Determine output path
