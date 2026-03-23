@@ -2,6 +2,20 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.1.0] - 2026-03-22
+
+### Added
+- DataSource interface abstracting data loading from file format
+- JSON file source adapter (array-of-objects → SQLite, with type inference)
+- Auto-detection of data source by file extension (.csv → CSV, .json → JSON)
+- Validation: nested objects/arrays in JSON throw clear errors
+- Multi-dot filename support (e.g., `sales.2024.csv` → table `sales.2024`)
+- 19 new tests: JSON adapter (9), auto-detection (8), table name derivation (4)
+
+### Changed
+- `server.ts` uses `loadDataSource()` instead of direct `loadCsv()` call
+- Table name derivation centralized in `deriveTableName()` (strips only known extensions)
+
 ## [0.1.0.0] - 2026-03-22
 
 ### Added
