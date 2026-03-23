@@ -3,7 +3,7 @@ import { parse as parseYaml } from "yaml";
 import { DashboardSpec } from "./schema";
 import { executeChartQuery } from "./query";
 import { renderDashboardHtml } from "./viewer";
-import { loadCsv, deriveTableName } from "./csv";
+import { loadDataSource } from "./datasource";
 import { resolve, dirname } from "path";
 import { readFileSync } from "fs";
 
@@ -18,24 +18,19 @@ export function loadDashboard(specPath: string): ServerContext {
   const parsed = parseYaml(raw);
   const spec = DashboardSpec.parse(parsed);
 
-  // Resolve CSV source relative to spec file
+  // Resolve data source relative to spec file
   const source = spec.source;
-  let csvPath: string;
+  let sourcePath: string;
   if (source.startsWith("/")) {
-    csvPath = source;
+    sourcePath = source;
   } else {
-    csvPath = resolve(dirname(specPath), source);
+    sourcePath = resolve(dirname(specPath), source);
   }
 
-  if (!csvPath.endsWith(".csv")) {
-    throw new Error(`Phase 0 only supports CSV sources. Got: ${source}`);
-  }
-
-  const db = loadCsv(csvPath);
+  const { db, tableName } = loadDataSource(sourcePath);
 
   // Pre-compute distinct values for dropdown filters
   const dropdownValues = new Map<string, string[]>();
-  const tableName = deriveTableName(csvPath);
   for (const filter of spec.filters) {
     if (filter.type === "dropdown") {
       try {
