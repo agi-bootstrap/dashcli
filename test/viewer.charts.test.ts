@@ -102,6 +102,48 @@ describe("gauge chart rendering", () => {
   });
 });
 
+describe("table numeric column alignment", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      { id: "table1", type: "table", query: "SELECT 1", label: "Data", position: [0, 0, 3, 1] },
+    ])
+  );
+
+  it("includes numeric column detection logic", () => {
+    expect(html).toContain("numCols");
+    expect(html).toContain("typeof v === 'number'");
+    expect(html).toContain("isNaN(Number(v))");
+  });
+
+  it("applies .num class to numeric headers and cells", () => {
+    expect(html).toContain('class="num"');
+    expect(html).toContain("numCols.has(col)");
+  });
+
+  it("includes right-alignment CSS rule for .num class", () => {
+    expect(html).toContain("th.num");
+    expect(html).toContain("td.num");
+    expect(html).toContain("text-align: right");
+  });
+
+  it("uses 0.5px letter-spacing on table headers (DESIGN.md)", () => {
+    expect(html).toContain("letter-spacing: 0.5px");
+  });
+});
+
+describe("KPI mobile responsiveness", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      { id: "kpi1", type: "kpi", query: "SELECT 1", label: "Revenue", format: "currency", position: [0, 0, 1, 1] },
+    ])
+  );
+
+  it("overrides min-height for KPI containers on mobile", () => {
+    expect(html).toContain(".card:has(.kpi-value)");
+    expect(html).toContain("min-height: auto");
+  });
+});
+
 describe("all chart types in single dashboard", () => {
   const html = renderDashboardHtml(
     specWith([
