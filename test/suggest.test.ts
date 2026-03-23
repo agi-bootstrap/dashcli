@@ -303,6 +303,45 @@ charts:
     ).rejects.toThrow("No valid YAML blocks found");
   });
 
+  it("sanitizes spec names to prevent path traversal", async () => {
+    const csvPath = writeFixture("traversal.csv", "x\n1\n");
+    const outDir = resolve(FIXTURES, "traversal-out");
+    mkdirSync(outDir, { recursive: true });
+
+    const mockResponse = `\`\`\`yaml
+name: ../../etc/evil
+title: Traversal Attempt
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 3
+  rows: auto
+charts:
+  - id: c1
+    type: kpi
+    query: "SELECT 1 as value"
+    position: [0, 0, 1, 1]
+\`\`\``;
+
+    const mockClient = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text" as const, text: mockResponse }],
+        }),
+      },
+    };
+
+    const files = await suggestDashboards(csvPath, {
+      outDir,
+      client: mockClient as any,
+    });
+
+    expect(files).toHaveLength(1);
+    // Should be sanitized to a safe filename within outDir
+    expect(files[0]).toContain("traversal-out");
+    expect(files[0]).not.toContain("..");
+    expect(files[0]).toEndWith("etc-evil.yaml");
+  });
+
   it("generates multiple specs from a single response", async () => {
     const csvPath = writeFixture("multi.csv", "name,val\nA,1\nB,2\n");
     const outDir = resolve(FIXTURES, "multi-out");

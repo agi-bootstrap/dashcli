@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { resolve, dirname, basename, relative } from "path";
-import { writeFileSync } from "fs";
+import { writeFileSync, mkdirSync } from "fs";
 import { DashboardSpec } from "./schema";
 import { loadDataSource, deriveTableName } from "./datasource";
 import type { Database } from "bun:sqlite";
@@ -175,6 +175,7 @@ export async function suggestDashboards(
   const outDir = options.outDir
     ? resolve(options.outDir)
     : dirname(resolvedSource);
+  mkdirSync(outDir, { recursive: true });
   const sourceRelative = `./${basename(resolvedSource)}`;
   const savedFiles: string[] = [];
 
@@ -195,7 +196,13 @@ export async function suggestDashboards(
     }
 
     const spec = result.data;
-    const outPath = resolve(outDir, `${spec.name}.yaml`);
+    // Sanitize LLM-generated name to prevent path traversal
+    const safeName = spec.name.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/^-+|-+$/g, "");
+    if (!safeName) {
+      console.error(`  Skipping spec with invalid name: "${spec.name}"`);
+      continue;
+    }
+    const outPath = resolve(outDir, `${safeName}.yaml`);
     writeFileSync(outPath, replaced);
     savedFiles.push(outPath);
     console.log(`  Saved: ${relative(process.cwd(), outPath)}`);
