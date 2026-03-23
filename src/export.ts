@@ -92,6 +92,12 @@ async function populateDropdowns() {
     offlinePopulateDropdowns.trim()
   );
 
+  // Hide filter bar in export — filters can't work without a server
+  html = html.replace(
+    '<div class="filter-bar">',
+    '<div class="filter-bar" style="display:none">'
+  );
+
   // Update subtitle to indicate this is an export
   html = html.replace(
     /dashcli &middot;/,
