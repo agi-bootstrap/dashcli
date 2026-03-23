@@ -6,7 +6,7 @@ import { stringify } from "yaml";
 import type { Server } from "bun";
 
 const FIXTURES = resolve(import.meta.dir, ".error-fixtures");
-const PORT = 3841;
+const PORT = 3851;
 let server: Server;
 
 beforeAll(() => {
