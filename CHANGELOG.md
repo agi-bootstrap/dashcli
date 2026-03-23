@@ -2,6 +2,24 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.2.0] - 2026-03-23
+
+### Added
+- `dashcli suggest <source>` command for AI-powered dashboard generation from CSV/JSON data
+- Analyzes data schema (column types, cardinality, value ranges) and sends to Claude API
+- Generates 3-5 dashboard YAML specs with appropriate chart types, filters, and layouts
+- `--out <dir>` flag to control output directory for generated specs
+- LLM trust boundary hardening: path traversal sanitization on spec names, Zod validation on all generated specs, truncation detection
+- Name deduplication for generated specs (appends `-2`, `-3`, etc.)
+- `@anthropic-ai/sdk` and `yaml` dependencies
+- 20 new tests covering suggest workflow, YAML parsing, schema summary, path traversal, truncation, name dedup
+
+### Fixed
+- Filter inputs now use `<label>` elements with `for` attributes for accessibility
+- Date range inputs include `aria-label` for screen readers
+- KPI values use `font-variant-numeric: tabular-nums` per DESIGN.md
+- Table header `letter-spacing` aligned to 0.5px matching card titles
+
 ## [0.1.1.0] - 2026-03-22
 
 ### Added
