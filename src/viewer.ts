@@ -87,7 +87,10 @@ body {
   grid-template-rows: repeat(${maxRow}, minmax(200px, auto));
   gap: calc(var(--sp) * 4);
   padding: calc(var(--sp) * 6);
+  max-width: 1440px;
+  margin: 0 auto;
 }
+.header, .filter-bar { max-width: 1440px; margin-left: auto; margin-right: auto; }
 
 /* Cards */
 .card {
