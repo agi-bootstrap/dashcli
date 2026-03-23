@@ -4,6 +4,14 @@ All notable changes to dashcli will be documented in this file.
 
 ## [0.1.1.0] - 2026-03-22
 
+### Added
+- `dashcli export <spec.yaml> [--out dir]` command for self-contained HTML output
+- Inlines ECharts library and pre-computed query results as embedded JSON
+- Exported files work fully offline with no server needed
+- Export date shown in subtitle for provenance tracking
+- `--out` flag validation (requires directory argument)
+- 18 new tests across 6 files (66 total, 0 failures)
+
 ### Fixed
 - Escape single quotes in HTML output to prevent XSS (#22)
 - Mask SQL error details in API responses — return generic "Query failed" (#9)
@@ -12,15 +20,13 @@ All notable changes to dashcli will be documented in this file.
 - Return 204 for /favicon.ico to suppress browser console 404 noise (#14)
 - Validate --port flag as integer in 1-65535 range (#4)
 - Show "No data" message for empty bar/line charts (#15)
+- Non-functional filter bar hidden in exported HTML (filters require a server)
 
 ### Changed
 - Deduplicate table name derivation between csv.ts and server.ts (#16)
 - Axis label color #999 → #737373 to match design system --text-muted token
 - Pagination text color #999 → #737373 for consistency
 - H1 line-height set to 1.2 per DESIGN.md
-
-### Added
-- 18 new tests across 6 files (66 total, 0 failures)
 
 ## [0.1.0.0] - 2026-03-22
 
