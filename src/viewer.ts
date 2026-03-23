@@ -473,9 +473,13 @@ async function loadAll() {
   await Promise.all(SPEC.charts.map(c => renderChart(c)));
 }
 
-// Filter change handler
+// Filter change handler (debounced to prevent rapid-fire requests)
+let _filterTimer;
 document.querySelectorAll('.filter-input').forEach(el => {
-  el.addEventListener('change', () => loadAll());
+  el.addEventListener('change', () => {
+    clearTimeout(_filterTimer);
+    _filterTimer = setTimeout(() => loadAll(), 150);
+  });
 });
 
 // Populate dropdown filters from API
@@ -499,6 +503,21 @@ async function populateDropdowns() {
 
 // Initial load
 populateDropdowns().then(() => loadAll());
+
+// Live reload via Server-Sent Events
+if (window.location.protocol !== 'file:') {
+  const _evtSource = new EventSource('/api/events/' + SPEC.name);
+  _evtSource.onmessage = function(event) {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'data-change') {
+        loadAll();
+      } else if (msg.type === 'spec-change') {
+        window.location.reload();
+      }
+    } catch(e) { console.warn('SSE parse error:', e); }
+  };
+}
 </script>
 </body>
 </html>`;
