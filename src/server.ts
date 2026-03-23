@@ -86,12 +86,12 @@ export function startServer(specPath: string, port: number = 3838) {
       if (dataMatch) {
         const [, dashName, chartId] = dataMatch;
         if (dashName !== spec.name) {
-          return Response.json({ error: `Dashboard '${dashName}' not found` }, { status: 404 });
+          return Response.json({ error: "Dashboard not found" }, { status: 404 });
         }
 
         const chart = spec.charts.find((c) => c.id === chartId);
         if (!chart) {
-          return Response.json({ error: `Chart '${chartId}' not found` }, { status: 404 });
+          return Response.json({ error: "Chart not found" }, { status: 404 });
         }
 
         // Parse filter values from query string

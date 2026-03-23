@@ -90,4 +90,12 @@ describe("server routes", () => {
     const res = await fetch(`${base}/api/data/unknown/total_revenue?date_range=2025-04-01,2026-03-31&region=all`);
     expect(res.status).toBe(404);
   });
+
+  it("does not reflect URL input in error messages (#8)", async () => {
+    const payload = "<script>alert(1)</script>";
+    const res = await fetch(`${base}/api/data/${encodeURIComponent(payload)}/x`);
+    const data = await res.json();
+    expect(data.error).not.toContain(payload);
+    expect(data.error).toBe("Dashboard not found");
+  });
 });
