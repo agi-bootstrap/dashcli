@@ -243,7 +243,8 @@ async function renderChart(chart) {
       chartInstances[chart.id].dispose();
       delete chartInstances[chart.id];
     }
-    container.innerHTML = '<div class="chart-error">' + err.message + '</div>';
+    const msg = String(err.message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    container.innerHTML = '<div class="chart-error">' + msg + '</div>';
   }
 }
 
