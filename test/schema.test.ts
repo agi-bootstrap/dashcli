@@ -125,6 +125,17 @@ describe("DashboardSpec schema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects bar chart without x and y fields", () => {
+    const result = DashboardSpec.safeParse({
+      name: "test",
+      title: "Test",
+      source: "./data.csv",
+      layout: { columns: 2 },
+      charts: [{ id: "c1", type: "bar", query: "SELECT 1", position: [0, 0, 1, 1] }],
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("accepts valid minimal spec", () => {
     const result = DashboardSpec.safeParse({
       name: "minimal",
