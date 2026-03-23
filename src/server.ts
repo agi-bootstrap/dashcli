@@ -57,6 +57,11 @@ export function startServer(specPath: string, port: number = 3838) {
   const ctx = loadDashboard(specPath);
   const { spec, db, dropdownValues } = ctx;
 
+  const securityHeaders: Record<string, string> = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+  };
+
   const server = Bun.serve({
     port,
     hostname: "127.0.0.1",
@@ -68,7 +73,7 @@ export function startServer(specPath: string, port: number = 3838) {
       if (path === "/" || path === `/d/${spec.name}`) {
         const html = renderDashboardHtml(spec);
         return new Response(html, {
-          headers: { "Content-Type": "text/html; charset=utf-8" },
+          headers: { "Content-Type": "text/html; charset=utf-8", ...securityHeaders },
         });
       }
 
@@ -78,7 +83,7 @@ export function startServer(specPath: string, port: number = 3838) {
         for (const [id, vals] of dropdownValues) {
           values[id] = vals;
         }
-        return Response.json(values);
+        return Response.json(values, { headers: securityHeaders });
       }
 
       // Chart data API
@@ -86,12 +91,12 @@ export function startServer(specPath: string, port: number = 3838) {
       if (dataMatch) {
         const [, dashName, chartId] = dataMatch;
         if (dashName !== spec.name) {
-          return Response.json({ error: "Dashboard not found" }, { status: 404 });
+          return Response.json({ error: "Dashboard not found" }, { status: 404, headers: securityHeaders });
         }
 
         const chart = spec.charts.find((c) => c.id === chartId);
         if (!chart) {
-          return Response.json({ error: "Chart not found" }, { status: 404 });
+          return Response.json({ error: "Chart not found" }, { status: 404, headers: securityHeaders });
         }
 
         // Parse filter values from query string
@@ -108,14 +113,14 @@ export function startServer(specPath: string, port: number = 3838) {
 
         try {
           const data = executeChartQuery(db, chart.query, spec.filters, filterValues);
-          return Response.json(data);
+          return Response.json(data, { headers: securityHeaders });
         } catch (err: any) {
           console.error("Chart query error:", err.message);
-          return Response.json({ error: "Query failed" }, { status: 500 });
+          return Response.json({ error: "Query failed" }, { status: 500, headers: securityHeaders });
         }
       }
 
-      return Response.json({ error: "Not found" }, { status: 404 });
+      return Response.json({ error: "Not found" }, { status: 404, headers: securityHeaders });
     },
   });
 
