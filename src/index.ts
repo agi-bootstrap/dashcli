@@ -3,6 +3,7 @@
 import { resolve } from "path";
 import { startServer } from "./server";
 import { exportDashboard } from "./export";
+import { suggestDashboards } from "./suggest";
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "fs";
 
 const args = process.argv.slice(2);
@@ -16,15 +17,17 @@ function usage() {
     dashcli create [name]    Create a sample dashboard
     dashcli serve <spec>     Serve a dashboard in the browser
     dashcli export <spec>    Export a self-contained HTML file
+    dashcli suggest <source> Generate dashboard specs from a data file
 
   Options:
     --port <n>               Port for web viewer (default: 3838)
-    --out <dir>              Output directory for export (default: spec dir)
+    --out <dir>              Output directory for export/suggest (default: source dir)
 
   Examples:
     dashcli create my-dashboard
     dashcli serve dashboards/my-dashboard.yaml
     dashcli export dashboards/my-dashboard.yaml --out dist/
+    dashcli suggest data/sales.csv --out dashboards/
 `);
 }
 
@@ -119,6 +122,48 @@ if (command === "create") {
     console.error(`Export failed: ${err.message}`);
     process.exit(1);
   });
+
+} else if (command === "suggest") {
+  const sourcePath = args[1];
+  if (!sourcePath) {
+    console.error("Error: Provide a path to a data file (CSV or JSON).");
+    console.error("  Usage: dashcli suggest <source> [--out dir]");
+    process.exit(1);
+  }
+
+  const resolved = resolve(sourcePath);
+  if (!existsSync(resolved)) {
+    console.error(`Error: File not found: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("Error: ANTHROPIC_API_KEY environment variable is required.");
+    console.error("  Set it with: export ANTHROPIC_API_KEY=sk-ant-...");
+    process.exit(1);
+  }
+
+  const outFlag = args.indexOf("--out");
+  if (outFlag !== -1 && !args[outFlag + 1]) {
+    console.error("Error: --out requires a directory argument.");
+    process.exit(1);
+  }
+  const outDir = outFlag !== -1 ? resolve(args[outFlag + 1]) : undefined;
+
+  console.log(`\n  Analyzing ${sourcePath}...`);
+  suggestDashboards(resolved, { outDir })
+    .then((files) => {
+      if (files.length === 0) {
+        console.error("\n  No valid dashboard specs were generated.");
+        process.exit(1);
+      }
+      console.log(`\n  Generated ${files.length} dashboard spec(s).`);
+      console.log(`  Try: dashcli serve ${files[0]}\n`);
+    })
+    .catch((err) => {
+      console.error(`Suggest failed: ${err.message}`);
+      process.exit(1);
+    });
 
 } else {
   console.error(`Unknown command: ${command}`);
