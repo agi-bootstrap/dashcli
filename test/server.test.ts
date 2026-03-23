@@ -90,4 +90,33 @@ describe("server routes", () => {
     const res = await fetch(`${base}/api/data/unknown/total_revenue?date_range=2025-04-01,2026-03-31&region=all`);
     expect(res.status).toBe(404);
   });
+
+  it("returns 204 for /favicon.ico instead of 404 (#14)", async () => {
+    const res = await fetch(`${base}/favicon.ico`);
+    expect(res.status).toBe(204);
+  });
+
+  it("includes X-Content-Type-Options: nosniff on HTML (#10)", async () => {
+    const res = await fetch(`${base}/`);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("includes X-Frame-Options: DENY on HTML (#10)", async () => {
+    const res = await fetch(`${base}/`);
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("includes security headers on JSON API responses (#10)", async () => {
+    const res = await fetch(`${base}/api/filters/sales-dashboard`);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
+  });
+
+  it("does not reflect URL input in error messages (#8)", async () => {
+    const payload = "<script>alert(1)</script>";
+    const res = await fetch(`${base}/api/data/${encodeURIComponent(payload)}/x`);
+    const data = await res.json();
+    expect(data.error).not.toContain(payload);
+    expect(data.error).toBe("Dashboard not found");
+  });
 });
