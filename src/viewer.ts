@@ -153,6 +153,21 @@ body {
   color: var(--red);
   font-size: 13px;
 }
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .filter-bar { flex-wrap: wrap; }
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto !important;
+  }
+  .dashboard-grid > .card {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+  }
+  .data-table { font-size: 12px; }
+  .kpi-value { font-size: 28px; }
+}
 </style>
 </head>
 <body>
