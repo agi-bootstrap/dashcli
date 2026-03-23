@@ -1,0 +1,396 @@
+import type { DashboardSpec, ChartSpec, FilterSpec } from "./schema";
+
+export function renderDashboardHtml(spec: DashboardSpec): string {
+  const gridCols = spec.layout.columns;
+
+  // Calculate max row from chart positions
+  const maxRow = spec.charts.reduce((max, c) => Math.max(max, c.position[1] + c.position[3]), 0);
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escHtml(spec.title)} — dashcli</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<style>
+:root {
+  --sp: 4px;
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e2e2e2;
+  --text: #1a1a1a;
+  --text-secondary: #6b6b6b;
+  --text-muted: #999;
+  --accent: #2563eb;
+  --green: #16a34a;
+  --red: #dc2626;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: calc(var(--sp) * 4) calc(var(--sp) * 6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.header h1 { font-size: 18px; font-weight: 600; }
+.header .subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-family: "SF Mono", "Fira Code", ui-monospace, monospace;
+}
+
+/* Filter bar */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp) * 3);
+  padding: calc(var(--sp) * 3) calc(var(--sp) * 6);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.filter-group { display: flex; align-items: center; gap: calc(var(--sp) * 2); }
+.filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+.filter-input {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--sp) * 1);
+  padding: calc(var(--sp) * 1.5) calc(var(--sp) * 2.5);
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+.filter-input:focus { border-color: var(--accent); }
+.filter-sep { color: var(--text-muted); font-size: 12px; }
+
+/* Dashboard grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(${gridCols}, 1fr);
+  grid-template-rows: repeat(${maxRow}, minmax(200px, auto));
+  gap: calc(var(--sp) * 4);
+  padding: calc(var(--sp) * 6);
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--sp) * 2);
+  padding: calc(var(--sp) * 4);
+  display: flex;
+  flex-direction: column;
+}
+.card-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: calc(var(--sp) * 3);
+}
+.chart-container { flex: 1; min-height: 0; }
+
+/* KPI */
+.kpi-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin-top: calc(var(--sp) * 8);
+}
+
+/* Table */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left;
+  padding: calc(var(--sp) * 2);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+.data-table td {
+  padding: calc(var(--sp) * 2);
+  border-bottom: 1px solid #f0f0f0;
+  color: var(--text-secondary);
+}
+.data-table tbody tr:hover { background: #f8f9fa; }
+
+/* Loading / Error states */
+.chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.chart-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--red);
+  font-size: 13px;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>${escHtml(spec.title)}</h1>
+    <div class="subtitle">dashcli &middot; ${escHtml(spec.name)}.yaml</div>
+  </div>
+</div>
+
+${renderFilterBar(spec.filters)}
+
+<div class="dashboard-grid">
+${spec.charts.map((chart) => renderChartCard(chart)).join("\n")}
+</div>
+
+<script>
+const SPEC = ${JSON.stringify(spec)};
+
+function getFilterValues() {
+  const vals = {};
+  for (const f of SPEC.filters) {
+    if (f.type === 'date_range') {
+      const start = document.getElementById('filter-' + f.id + '-start')?.value;
+      const end = document.getElementById('filter-' + f.id + '-end')?.value;
+      vals[f.id] = start + ',' + end;
+    } else if (f.type === 'dropdown') {
+      vals[f.id] = document.getElementById('filter-' + f.id)?.value || 'all';
+    }
+  }
+  return vals;
+}
+
+function buildQueryString(filters) {
+  return new URLSearchParams(filters).toString();
+}
+
+async function fetchChartData(chartId) {
+  const filters = getFilterValues();
+  const qs = buildQueryString(filters);
+  const res = await fetch('/api/data/' + SPEC.name + '/' + chartId + '?' + qs);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || 'Query failed');
+  }
+  return res.json();
+}
+
+function formatValue(val, format) {
+  if (val == null) return '—';
+  if (format === 'currency') {
+    const n = Number(val);
+    if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1) + 'M';
+    if (n >= 1_000) return '$' + (n / 1_000).toFixed(0) + 'K';
+    return '$' + n.toFixed(0);
+  }
+  if (format === 'percent') return Number(val).toFixed(1) + '%';
+  if (typeof val === 'number') return val.toLocaleString();
+  return String(val);
+}
+
+const chartInstances = {};
+
+async function renderChart(chart) {
+  const container = document.getElementById('chart-' + chart.id);
+  if (!container) return;
+
+  // For ECharts types, show loading on existing instance or set placeholder
+  if ((chart.type === 'bar' || chart.type === 'line') && chartInstances[chart.id]) {
+    chartInstances[chart.id].showLoading();
+  } else {
+    container.innerHTML = '<div class="chart-loading">Loading...</div>';
+  }
+
+  try {
+    const data = await fetchChartData(chart.id);
+
+    if (chart.type === 'kpi') {
+      renderKpi(container, chart, data);
+    } else if (chart.type === 'table') {
+      renderTable(container, chart, data);
+    } else if (chart.type === 'bar' || chart.type === 'line') {
+      renderEChart(container, chart, data);
+    }
+  } catch (err) {
+    if (chartInstances[chart.id]) {
+      chartInstances[chart.id].dispose();
+      delete chartInstances[chart.id];
+    }
+    container.innerHTML = '<div class="chart-error">' + err.message + '</div>';
+  }
+}
+
+function renderKpi(container, chart, data) {
+  const row = data[0] || {};
+  const val = row.value ?? row[Object.keys(row)[0]];
+  container.innerHTML = '<div class="kpi-value">' + formatValue(val, chart.format) + '</div>';
+}
+
+function renderTable(container, chart, data) {
+  if (!data.length) {
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+  const cols = Object.keys(data[0]);
+  let html = '<table class="data-table"><thead><tr>';
+  for (const col of cols) html += '<th>' + col.replace(/_/g, ' ') + '</th>';
+  html += '</tr></thead><tbody>';
+  for (const row of data.slice(0, 50)) {
+    html += '<tr>';
+    for (const col of cols) html += '<td>' + (row[col] ?? '') + '</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#999;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
+  container.innerHTML = html;
+}
+
+function renderEChart(container, chart, data) {
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const xData = data.map(r => r[chart.x]);
+  const yData = data.map(r => Number(r[chart.y]));
+
+  instance.setOption({
+    tooltip: { trigger: chart.type === 'bar' ? 'axis' : 'item' },
+    grid: { left: 48, right: 16, top: 16, bottom: 32 },
+    xAxis: {
+      type: 'category',
+      data: xData,
+      axisLabel: { fontSize: 11, color: '#999' },
+      axisLine: { lineStyle: { color: '#e2e2e2' } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#999' },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#f0f0f0' } },
+    },
+    series: [{
+      type: chart.type,
+      data: yData,
+      itemStyle: { color: '#2563eb', borderRadius: chart.type === 'bar' ? [4, 4, 0, 0] : undefined },
+      lineStyle: chart.type === 'line' ? { width: 2.5, color: '#2563eb' } : undefined,
+      areaStyle: undefined,
+      smooth: chart.type === 'line',
+      symbol: chart.type === 'line' ? 'circle' : undefined,
+      symbolSize: chart.type === 'line' ? 6 : undefined,
+    }],
+  }, true); // true = notMerge, replace entire option
+
+  instance.hideLoading();
+}
+
+async function loadAll() {
+  await Promise.all(SPEC.charts.map(c => renderChart(c)));
+}
+
+// Filter change handler
+document.querySelectorAll('.filter-input').forEach(el => {
+  el.addEventListener('change', () => loadAll());
+});
+
+// Populate dropdown filters from API
+async function populateDropdowns() {
+  try {
+    const res = await fetch('/api/filters/' + SPEC.name);
+    if (!res.ok) return;
+    const values = await res.json();
+    for (const [filterId, options] of Object.entries(values)) {
+      const select = document.getElementById('filter-' + filterId);
+      if (!select || select.tagName !== 'SELECT') continue;
+      for (const opt of options) {
+        const el = document.createElement('option');
+        el.value = opt;
+        el.textContent = opt;
+        select.appendChild(el);
+      }
+    }
+  } catch {}
+}
+
+// Initial load
+populateDropdowns().then(() => loadAll());
+</script>
+</body>
+</html>`;
+}
+
+function renderFilterBar(filters: FilterSpec[]): string {
+  if (!filters.length) return "";
+
+  const groups = filters.map((f) => {
+    if (f.type === "date_range") {
+      const [start, end] = Array.isArray(f.default) ? f.default : ["", ""];
+      return `<div class="filter-group">
+  <span class="filter-label">${escHtml(f.id.replace(/_/g, " "))}</span>
+  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-start" value="${escHtml(start)}">
+  <span class="filter-sep">&rarr;</span>
+  <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-end" value="${escHtml(end)}">
+</div>`;
+    } else {
+      return `<div class="filter-group">
+  <span class="filter-label">${escHtml(f.id.replace(/_/g, " "))}</span>
+  <select class="filter-input" id="filter-${escHtml(f.id)}">
+    <option value="all">All</option>
+  </select>
+</div>`;
+    }
+  });
+
+  return `<div class="filter-bar">${groups.join("\n")}</div>`;
+}
+
+function renderChartCard(chart: ChartSpec): string {
+  const [colStart, rowStart, colSpan, rowSpan] = chart.position;
+  const style = `grid-column: ${colStart + 1} / span ${colSpan}; grid-row: ${rowStart + 1} / span ${rowSpan};`;
+  const label = chart.label || chart.id.replace(/_/g, " ");
+
+  return `<div class="card" style="${style}">
+  <div class="card-title">${escHtml(label)}</div>
+  <div class="chart-container" id="chart-${escHtml(chart.id)}"></div>
+</div>`;
+}
+
+function escHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
