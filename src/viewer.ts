@@ -21,7 +21,7 @@ export function renderDashboardHtml(spec: DashboardSpec): string {
   --border: #e2e2e2;
   --text: #1a1a1a;
   --text-secondary: #6b6b6b;
-  --text-muted: #999;
+  --text-muted: #737373;
   --accent: #2563eb;
   --green: #16a34a;
   --red: #dc2626;
