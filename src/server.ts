@@ -72,7 +72,23 @@ export function startServer(specPath: string, port: number = 3838) {
   }
 
   // File watching with debounce
+  // Re-watch after rename events (atomic saves replace the inode, killing kqueue watchers)
   let reloadTimer: Timer | undefined;
+
+  function watchFile(filePath: string, eventType: string) {
+    let watcher: ReturnType<typeof watch>;
+    try {
+      watcher = watch(filePath, (event) => {
+        reloadAndBroadcast(eventType);
+        if (event === "rename") {
+          watcher.close();
+          setTimeout(() => watchFile(filePath, eventType), 100);
+        }
+      });
+    } catch {
+      // File may have been deleted (e.g., during test cleanup)
+    }
+  }
 
   function reloadAndBroadcast(eventType: string) {
     clearTimeout(reloadTimer);
@@ -89,8 +105,8 @@ export function startServer(specPath: string, port: number = 3838) {
     }, 200);
   }
 
-  watch(specPath, () => reloadAndBroadcast("spec-change"));
-  watch(ctx.sourcePath, () => reloadAndBroadcast("data-change"));
+  watchFile(specPath, "spec-change");
+  watchFile(ctx.sourcePath, "data-change");
 
   const server = Bun.serve({
     port,
