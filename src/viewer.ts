@@ -140,6 +140,7 @@ body {
   border-bottom: 1px solid #f0f0f0;
   color: var(--text-secondary);
 }
+.data-table th.num, .data-table td.num { text-align: right; }
 .data-table tbody tr:hover { background: #f8f9fa; }
 
 /* Loading / Error states */
@@ -172,7 +173,8 @@ body {
     grid-row: auto !important;
   }
   .data-table { font-size: 12px; }
-  .kpi-value { font-size: 28px; }
+  .kpi-value { font-size: 28px; margin-top: calc(var(--sp) * 2); }
+  .card:has(.kpi-value) .chart-container { min-height: auto; }
 }
 </style>
 </head>
@@ -291,15 +293,21 @@ function renderTable(container, chart, data) {
     return;
   }
   const cols = Object.keys(data[0]);
+  // Detect numeric columns from first row
+  const numCols = new Set();
+  for (const col of cols) {
+    const v = data[0][col];
+    if (typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)))) numCols.add(col);
+  }
   let html = '<table class="data-table"><thead><tr>';
-  for (const col of cols) html += '<th>' + esc(col.replace(/_/g, ' ')) + '</th>';
+  for (const col of cols) html += '<th' + (numCols.has(col) ? ' class="num"' : '') + '>' + esc(col.replace(/_/g, ' ')) + '</th>';
   html += '</tr></thead><tbody>';
   for (const row of data.slice(0, 50)) {
     html += '<tr>';
     for (const col of cols) {
       const v = row[col];
-      const isNum = typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)));
-      html += '<td>' + (isNum ? Number(v).toLocaleString() : esc(v ?? '')) + '</td>';
+      const isNum = numCols.has(col);
+      html += '<td' + (isNum ? ' class="num"' : '') + '>' + (isNum ? (v == null ? '' : Number(v).toLocaleString()) : esc(v ?? '')) + '</td>';
     }
     html += '</tr>';
   }
@@ -474,9 +482,13 @@ async function loadAll() {
   await Promise.all(SPEC.charts.map(c => renderChart(c)));
 }
 
-// Filter change handler
+// Filter change handler (debounced to prevent rapid-fire requests)
+let _filterTimer;
 document.querySelectorAll('.filter-input').forEach(el => {
-  el.addEventListener('change', () => loadAll());
+  el.addEventListener('change', () => {
+    clearTimeout(_filterTimer);
+    _filterTimer = setTimeout(() => loadAll(), 150);
+  });
 });
 
 // Populate dropdown filters from API
@@ -500,6 +512,21 @@ async function populateDropdowns() {
 
 // Initial load
 populateDropdowns().then(() => loadAll());
+
+// Live reload via Server-Sent Events
+if (window.location.protocol !== 'file:') {
+  const _evtSource = new EventSource('/api/events/' + SPEC.name);
+  _evtSource.onmessage = function(event) {
+    try {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'data-change') {
+        loadAll();
+      } else if (msg.type === 'spec-change') {
+        window.location.reload();
+      }
+    } catch(e) { console.warn('SSE parse error:', e); }
+  };
+}
 </script>
 </body>
 </html>`;

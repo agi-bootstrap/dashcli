@@ -5,12 +5,13 @@ import { executeChartQuery } from "./query";
 import { renderDashboardHtml } from "./viewer";
 import { loadDataSource } from "./datasource";
 import { resolve, dirname } from "path";
-import { readFileSync } from "fs";
+import { readFileSync, watch } from "fs";
 
 interface ServerContext {
   spec: DashboardSpec;
   db: Database;
   dropdownValues: Map<string, string[]>;
+  sourcePath: string;
 }
 
 export function loadDashboard(specPath: string): ServerContext {
@@ -45,17 +46,67 @@ export function loadDashboard(specPath: string): ServerContext {
     }
   }
 
-  return { spec, db, dropdownValues };
+  return { spec, db, dropdownValues, sourcePath };
 }
 
 export function startServer(specPath: string, port: number = 3838) {
-  const ctx = loadDashboard(specPath);
-  const { spec, db, dropdownValues } = ctx;
+  let ctx = loadDashboard(specPath);
 
   const securityHeaders: Record<string, string> = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
   };
+
+  // SSE clients for live reload
+  const sseClients = new Set<ReadableStreamDefaultController>();
+
+  function broadcast(data: object) {
+    const msg = `data: ${JSON.stringify(data)}\n\n`;
+    for (const controller of sseClients) {
+      try {
+        controller.enqueue(msg);
+      } catch {
+        sseClients.delete(controller);
+      }
+    }
+  }
+
+  // File watching with debounce
+  // Re-watch after rename events (atomic saves replace the inode, killing kqueue watchers)
+  let reloadTimer: Timer | undefined;
+
+  function watchFile(filePath: string, eventType: string) {
+    let watcher: ReturnType<typeof watch>;
+    try {
+      watcher = watch(filePath, (event) => {
+        reloadAndBroadcast(eventType);
+        if (event === "rename") {
+          watcher.close();
+          setTimeout(() => watchFile(filePath, eventType), 100);
+        }
+      });
+    } catch {
+      // File may have been deleted (e.g., during test cleanup)
+    }
+  }
+
+  function reloadAndBroadcast(eventType: string) {
+    clearTimeout(reloadTimer);
+    reloadTimer = setTimeout(() => {
+      try {
+        const oldDb = ctx.db;
+        ctx = loadDashboard(specPath);
+        oldDb.close();
+        broadcast({ type: eventType });
+        console.log(`  ↻ Reloaded (${eventType})`);
+      } catch (err: any) {
+        console.error(`  ✗ Reload failed: ${err.message}`);
+      }
+    }, 200);
+  }
+
+  watchFile(specPath, "spec-change");
+  watchFile(ctx.sourcePath, "data-change");
 
   const server = Bun.serve({
     port,
@@ -69,18 +120,41 @@ export function startServer(specPath: string, port: number = 3838) {
         return new Response(null, { status: 204, headers: securityHeaders });
       }
 
+      // SSE endpoint for live reload
+      if (path === `/api/events/${ctx.spec.name}`) {
+        let ctrl: ReadableStreamDefaultController;
+        const stream = new ReadableStream({
+          start(controller) {
+            ctrl = controller;
+            sseClients.add(controller);
+            controller.enqueue(`data: ${JSON.stringify({ type: "connected" })}\n\n`);
+          },
+          cancel() {
+            sseClients.delete(ctrl);
+          },
+        });
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            ...securityHeaders,
+          },
+        });
+      }
+
       // Dashboard page
-      if (path === "/" || path === `/d/${spec.name}`) {
-        const html = renderDashboardHtml(spec);
+      if (path === "/" || path === `/d/${ctx.spec.name}`) {
+        const html = renderDashboardHtml(ctx.spec);
         return new Response(html, {
           headers: { "Content-Type": "text/html; charset=utf-8", ...securityHeaders },
         });
       }
 
       // Dropdown filter values API
-      if (path === `/api/filters/${spec.name}`) {
+      if (path === `/api/filters/${ctx.spec.name}`) {
         const values: Record<string, string[]> = {};
-        for (const [id, vals] of dropdownValues) {
+        for (const [id, vals] of ctx.dropdownValues) {
           values[id] = vals;
         }
         return Response.json(values, { headers: securityHeaders });
@@ -90,18 +164,18 @@ export function startServer(specPath: string, port: number = 3838) {
       const dataMatch = path.match(/^\/api\/data\/([^/]+)\/([^/]+)$/);
       if (dataMatch) {
         const [, dashName, chartId] = dataMatch;
-        if (dashName !== spec.name) {
+        if (dashName !== ctx.spec.name) {
           return Response.json({ error: "Dashboard not found" }, { status: 404, headers: securityHeaders });
         }
 
-        const chart = spec.charts.find((c) => c.id === chartId);
+        const chart = ctx.spec.charts.find((c) => c.id === chartId);
         if (!chart) {
           return Response.json({ error: "Chart not found" }, { status: 404, headers: securityHeaders });
         }
 
         // Parse filter values from query string
         const filterValues: Record<string, string | [string, string]> = {};
-        for (const filter of spec.filters) {
+        for (const filter of ctx.spec.filters) {
           const raw = url.searchParams.get(filter.id);
           if (raw && filter.type === "date_range") {
             const parts = raw.split(",");
@@ -112,7 +186,7 @@ export function startServer(specPath: string, port: number = 3838) {
         }
 
         try {
-          const data = executeChartQuery(db, chart.query, spec.filters, filterValues);
+          const data = executeChartQuery(ctx.db, chart.query, ctx.spec.filters, filterValues);
           return Response.json(data, { headers: securityHeaders });
         } catch (err: any) {
           console.error("Chart query error:", err.message);
@@ -124,9 +198,10 @@ export function startServer(specPath: string, port: number = 3838) {
     },
   });
 
-  console.log(`\n  dashcli serving: ${spec.title}`);
-  console.log(`  ${spec.charts.length} charts, ${spec.filters.length} filters`);
-  console.log(`\n  ➜  http://localhost:${server.port}/d/${spec.name}\n`);
+  console.log(`\n  dashcli serving: ${ctx.spec.title}`);
+  console.log(`  ${ctx.spec.charts.length} charts, ${ctx.spec.filters.length} filters`);
+  console.log(`  live reload: watching spec + data files`);
+  console.log(`\n  ➜  http://localhost:${server.port}/d/${ctx.spec.name}\n`);
 
   return server;
 }
