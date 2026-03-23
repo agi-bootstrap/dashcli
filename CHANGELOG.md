@@ -2,6 +2,18 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.1.0] - 2026-03-22
+
+### Added
+- `dashcli export <spec.yaml> [--out dir]` command for self-contained HTML output
+- Inlines ECharts library and pre-computed query results as embedded JSON
+- Exported files work fully offline with no server needed
+- Export date shown in subtitle for provenance tracking
+- `--out` flag validation (requires directory argument)
+
+### Fixed
+- Non-functional filter bar hidden in exported HTML (filters require a server)
+
 ## [0.1.0.0] - 2026-03-22
 
 ### Added
