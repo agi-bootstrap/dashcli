@@ -2,6 +2,20 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.2.0] - 2026-03-23
+
+### Added
+- Live reload via Server-Sent Events (SSE) — dashboard auto-refreshes when spec or data files change
+- Debounced filter handler (150ms) to prevent excessive API calls during rapid input
+- Client-side EventSource listener with `file://` protocol guard for exported HTML
+
+### Fixed
+- `fs.watch` dies silently after atomic save on macOS — re-creates watcher on `rename` events
+- Null values in numeric table columns displayed as "0" instead of empty cell
+- KPI cards excessive height on mobile (242px → 113px, 53% reduction)
+- Numeric table columns left-aligned — now right-aligned with `.num` class
+- Table header letter-spacing inconsistent (0.3px → 0.5px per DESIGN.md)
+
 ## [0.1.1.0] - 2026-03-22
 
 ### Added
