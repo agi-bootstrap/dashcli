@@ -43,7 +43,7 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.header h1 { font-size: 18px; font-weight: 600; }
+.header h1 { font-size: 22px; font-weight: 600; }
 .header .subtitle {
   font-size: 12px;
   color: var(--text-muted);
