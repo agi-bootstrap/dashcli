@@ -69,6 +69,11 @@ export function startServer(specPath: string, port: number = 3838) {
       const url = new URL(req.url);
       const path = url.pathname;
 
+      // Favicon — return empty 204 to suppress browser 404 noise
+      if (path === "/favicon.ico") {
+        return new Response(null, { status: 204, headers: securityHeaders });
+      }
+
       // Dashboard page
       if (path === "/" || path === `/d/${spec.name}`) {
         const html = renderDashboardHtml(spec);

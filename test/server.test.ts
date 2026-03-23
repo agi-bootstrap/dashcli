@@ -91,6 +91,11 @@ describe("server routes", () => {
     expect(res.status).toBe(404);
   });
 
+  it("returns 204 for /favicon.ico instead of 404 (#14)", async () => {
+    const res = await fetch(`${base}/favicon.ico`);
+    expect(res.status).toBe(204);
+  });
+
   it("includes X-Content-Type-Options: nosniff on HTML (#10)", async () => {
     const res = await fetch(`${base}/`);
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
