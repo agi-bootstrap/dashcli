@@ -6,8 +6,8 @@ All notable changes to dashcli will be documented in this file.
 
 ### Added
 - Live reload via Server-Sent Events (SSE) — dashboard auto-refreshes when spec or data files change
-- Debounced filter handler (150ms) to prevent excessive API calls during rapid input
-- Client-side EventSource listener with `file://` protocol guard for exported HTML
+- Faster filter response — inputs are debounced (150ms) so rapid typing no longer floods the server
+- Exported HTML gracefully skips live reload (SSE requires a server; `file://` opens still work)
 
 ### Fixed
 - `fs.watch` dies silently after atomic save on macOS — re-creates watcher on `rename` events
