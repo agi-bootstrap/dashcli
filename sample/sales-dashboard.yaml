@@ -1,0 +1,62 @@
+name: sales-dashboard
+title: Revenue by Region
+source: ./sales.csv
+refresh: manual
+
+filters:
+  - id: date_range
+    type: date_range
+    column: date
+    default: ["2025-04-01", "2026-03-31"]
+  - id: region
+    type: dropdown
+    column: region
+    default: all
+
+layout:
+  columns: 3
+  rows: auto
+
+charts:
+  - id: total_revenue
+    type: kpi
+    query: "SELECT SUM(revenue) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    label: Total Revenue
+    format: currency
+    position: [0, 0, 1, 1]
+
+  - id: total_deals
+    type: kpi
+    query: "SELECT SUM(deals) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    label: Total Deals
+    format: number
+    position: [1, 0, 1, 1]
+
+  - id: avg_deal_size
+    type: kpi
+    query: "SELECT ROUND(CAST(SUM(revenue) AS REAL) / SUM(deals), 0) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    label: Avg Deal Size
+    format: currency
+    position: [2, 0, 1, 1]
+
+  - id: by_region
+    type: bar
+    query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region ORDER BY revenue DESC"
+    x: region
+    y: revenue
+    label: Revenue by Region
+    position: [0, 1, 2, 1]
+
+  - id: trend
+    type: line
+    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY date ORDER BY date"
+    x: month
+    y: revenue
+    label: Revenue Trend
+    position: [2, 1, 1, 1]
+
+  - id: detail_table
+    type: table
+    query: "SELECT region, product_category, SUM(revenue) as revenue, SUM(deals) as deals, ROUND(CAST(SUM(revenue) AS REAL) / SUM(deals), 0) as avg_deal_size FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category ORDER BY revenue DESC"
+    label: Revenue by Region & Category
+    position: [0, 2, 3, 1]
