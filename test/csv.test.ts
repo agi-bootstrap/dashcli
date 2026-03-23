@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from "bun:test";
-import { loadCsv } from "../src/csv";
+import { loadCsv, deriveTableName } from "../src/csv";
 import { resolve } from "path";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
 
@@ -55,6 +55,20 @@ describe("loadCsv", () => {
     expect(typeof row.deals).toBe("number");
     expect(typeof row.region).toBe("string");
     db.close();
+  });
+});
+
+describe("deriveTableName", () => {
+  it("strips .csv extension and returns base name", () => {
+    expect(deriveTableName("/path/to/sales.csv")).toBe("sales");
+  });
+
+  it("handles uppercase .CSV extension", () => {
+    expect(deriveTableName("/path/to/DATA.CSV")).toBe("DATA");
+  });
+
+  it("escapes double quotes in filename", () => {
+    expect(deriveTableName('/path/to/my"table.csv')).toBe('my""table');
   });
 });
 

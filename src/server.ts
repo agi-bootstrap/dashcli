@@ -3,7 +3,7 @@ import { parse as parseYaml } from "yaml";
 import { DashboardSpec } from "./schema";
 import { executeChartQuery } from "./query";
 import { renderDashboardHtml } from "./viewer";
-import { loadCsv } from "./csv";
+import { loadCsv, deriveTableName } from "./csv";
 import { resolve, dirname } from "path";
 import { readFileSync } from "fs";
 
@@ -35,7 +35,7 @@ export function loadDashboard(specPath: string): ServerContext {
 
   // Pre-compute distinct values for dropdown filters
   const dropdownValues = new Map<string, string[]>();
-  const tableName = csvPath.split("/").pop()!.replace(/\.csv$/i, "").replace(/"/g, '""');
+  const tableName = deriveTableName(csvPath);
   for (const filter of spec.filters) {
     if (filter.type === "dropdown") {
       try {
