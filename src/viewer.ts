@@ -297,7 +297,7 @@ function renderTable(container, chart, data) {
     html += '</tr>';
   }
   html += '</tbody></table>';
-  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#999;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
+  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#737373;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
   container.innerHTML = html;
 }
 
