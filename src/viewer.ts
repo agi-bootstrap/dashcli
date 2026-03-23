@@ -120,6 +120,7 @@ body {
   color: var(--text);
   text-align: center;
   margin-top: calc(var(--sp) * 8);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Table */
