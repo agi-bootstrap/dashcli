@@ -2,6 +2,11 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.2.1] - 2026-03-23
+
+### Added
+- README with install instructions, quick start, CLI command reference, dashboard spec format, chart types table, filter interpolation docs, project structure, and development workflow
+
 ## [0.1.2.0] - 2026-03-23
 
 ### Added
