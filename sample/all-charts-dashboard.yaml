@@ -9,9 +9,17 @@ filters:
     column: date
     default: ["2025-04-01", "2026-03-31"]
   - id: region
-    type: dropdown
+    type: multi_select
     column: region
-    default: all
+    default: []
+  - id: revenue_range
+    type: range
+    column: revenue
+    default: [0, 100000]
+  - id: category_search
+    type: text
+    column: product_category
+    default: ""
 
 layout:
   columns: 3
@@ -75,8 +83,42 @@ charts:
     label: Deals vs Revenue
     position: [0, 2, 2, 1]
 
+  - id: revenue_area
+    type: area
+    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY date ORDER BY date"
+    x: month
+    y: revenue
+    label: Revenue Trend (Area)
+    position: [0, 3, 1, 1]
+
+  - id: revenue_stacked
+    type: stacked_bar
+    query: "SELECT region, product_category, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category ORDER BY region"
+    x: region
+    y: revenue
+    group: product_category
+    label: Revenue by Region (Stacked)
+    position: [1, 3, 1, 1]
+
+  - id: deal_funnel
+    type: funnel
+    query: "SELECT product_category as stage, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} GROUP BY product_category ORDER BY deals DESC"
+    x: stage
+    y: deals
+    label: Deals by Category
+    position: [2, 3, 1, 1]
+
+  - id: revenue_heatmap
+    type: heatmap
+    query: "SELECT region, product_category, SUM(revenue) as total_revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category"
+    x: region
+    y: product_category
+    value: total_revenue
+    label: Revenue Heatmap
+    position: [0, 4, 2, 1]
+
   - id: detail_table
     type: table
     query: "SELECT region, product_category, SUM(revenue) as revenue, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category ORDER BY revenue DESC"
     label: Revenue by Region & Category
-    position: [2, 2, 1, 1]
+    position: [2, 4, 1, 1]

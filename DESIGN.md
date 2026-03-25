@@ -147,6 +147,27 @@ All interactive elements (inputs, selects, buttons) must have a minimum height o
 | Tooltip | axis trigger (bar), item trigger (line/scatter) |
 | Min container height | 180px |
 
+### Additional Chart Types
+
+| Type | Description |
+|------|-------------|
+| Area | Line chart with 15% opacity fill (`rgba(37, 99, 235, 0.15)`). Same smooth curves, 2.5px line width, and circle symbols as line chart. Uses ECharts `areaStyle`. |
+| Stacked bar | Multi-series stacked bar chart. Each series uses accent color with opacity gradient from 1.0 (first group) to 0.3 (last group). Top stack gets rounded corners `[4, 4, 0, 0]`. Legend shown at bottom when ≤8 groups. Requires `group` field in spec. |
+| Heatmap | Two-axis category grid with intensity coloring. Gradient from `#f0f4ff` (min) to `#2563eb` (max). White cell borders (2px). Hidden visualMap. Requires `value` field in spec. |
+| Funnel | Conversion funnel. Opacity gradient 0.3–1.0 on accent color, same pattern as pie chart. Centered at 80% width, white borders (2px). Requires x (label) and y (value). |
+
+## Filters
+
+Filter controls live in the filter bar. Existing types: `dropdown` and `date_range`.
+
+### Additional Filter Types
+
+| Type | Description |
+|------|-------------|
+| Multi-select | Native `<select multiple>` with max-height 88px. No "All" option; empty selection means no filter applied. Populated from API like dropdown. |
+| Range | Two `<input type="number">` fields with arrow separator (same layout as date_range). Validates min ≤ max (auto-swaps), falls back to no-filter on empty/NaN. |
+| Text | Single `<input type="text">` with "Search..." placeholder. Generates SQL LIKE with escaped wildcards. |
+
 ## Anti-Patterns (Do Not)
 
 - No gradients, blobs, or decorative SVGs

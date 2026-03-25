@@ -119,4 +119,26 @@ describe("server routes", () => {
     expect(data.error).not.toContain(payload);
     expect(data.error).toBe("Dashboard not found");
   });
+
+  // Filter type tests — sales-dashboard uses dropdown & date_range filters.
+  // multi_select, range, and text filter types are validated in viewer.charts.test.ts.
+  // These tests verify server-side filter handling with repeated/multiple query params.
+  describe("filter query param handling", () => {
+    it("handles repeated region params gracefully", async () => {
+      const res = await fetch(`${base}/api/data/sales-dashboard/total_revenue?date_range=2025-04-01,2026-03-31&region=Europe&region=Asia`);
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data).toBeInstanceOf(Array);
+      expect(data.length).toBeGreaterThan(0);
+    });
+
+    it("returns valid JSON for filter values endpoint", async () => {
+      const res = await fetch(`${base}/api/filters/sales-dashboard`);
+      expect(res.status).toBe(200);
+      const ct = res.headers.get("content-type");
+      expect(ct).toContain("application/json");
+      const data = await res.json();
+      expect(data).toHaveProperty("region");
+    });
+  });
 });

@@ -97,18 +97,30 @@ charts:
 | `kpi` | `query` (returns single value) | Supports `format`: currency, number, percent |
 | `bar` | `x`, `y` | |
 | `line` | `x`, `y` | Smooth curves |
+| `area` | `x`, `y` | Filled line chart |
 | `pie` | `x`, `y` | `x` = label, `y` = value |
 | `scatter` | `x`, `y` | |
 | `gauge` | `query` (returns single value) | Optional `min`, `max` |
+| `stacked_bar` | `x`, `y`, `group` | Multi-series stacked bars |
+| `heatmap` | `x`, `y`, `value` | Two-axis intensity grid |
+| `funnel` | `x`, `y` | Conversion funnel |
 | `table` | `query` (returns rows) | |
 
-### Filter interpolation
+### Positions
 
 Positions are `[col_start, row_start, col_span, row_span]`, 0-indexed.
 
-### Filter interpolation
+### Filter types
 
-Use `{{filter_id}}` in queries. dashcli replaces date_range filters with `column BETWEEN ? AND ?` and dropdown filters with `column = ?` (or `1=1` when "all" is selected).
+| Type | Default | Notes |
+|------|---------|-------|
+| `date_range` | `["start", "end"]` | `BETWEEN ? AND ?` |
+| `dropdown` | `all` | `column = ?` or `1=1` when "all" |
+| `multi_select` | `[]` | `IN (?, ?, ...)` via repeated query params |
+| `range` | `[min, max]` | `BETWEEN ? AND ?` with numeric values |
+| `text` | `""` | `LIKE '%...%'` with escaped wildcards |
+
+Use `{{filter_id}}` in queries. dashcli replaces filter placeholders with parameterized SQL.
 
 ## Project structure
 

@@ -108,3 +108,130 @@ describe("executeChartQuery", () => {
     db.close();
   });
 });
+
+describe("new filter types", () => {
+  const multiSelectFilter = { id: "region", type: "multi_select" as const, column: "region", default: [] as string[] };
+  const rangeFilter = { id: "amount", type: "range" as const, column: "amount", default: [0, 1000] as [number, number] };
+  const textFilter = { id: "search", type: "text" as const, column: "name", default: "" };
+
+  it("multi_select with multiple values generates IN clause", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{region}}",
+      [multiSelectFilter],
+      { region: ["East", "West"] }
+    );
+    expect(result.sql).toContain('IN (?, ?)');
+    expect(result.params).toEqual(["East", "West"]);
+  });
+
+  it("multi_select with empty array generates 1=1", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{region}}",
+      [multiSelectFilter],
+      { region: [] }
+    );
+    expect(result.sql).toContain("1=1");
+    expect(result.params).toEqual([]);
+  });
+
+  it("multi_select with single value generates IN (?)", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{region}}",
+      [multiSelectFilter],
+      { region: ["East"] }
+    );
+    expect(result.sql).toContain('IN (?)');
+    expect(result.params).toEqual(["East"]);
+  });
+
+  it("multi_select caps at 100 values", () => {
+    const values = Array.from({ length: 150 }, (_, i) => "val" + i);
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{region}}",
+      [multiSelectFilter],
+      { region: values }
+    );
+    // Should have 100 ? placeholders
+    const questionMarks = (result.sql.match(/\?/g) || []).length;
+    expect(questionMarks).toBe(100);
+    expect(result.params.length).toBe(100);
+  });
+
+  it("range generates BETWEEN with numeric params", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{amount}}",
+      [rangeFilter],
+      { amount: ["100", "500"] }
+    );
+    expect(result.sql).toContain("BETWEEN ? AND ?");
+    expect(result.params).toEqual([100, 500]);
+  });
+
+  it("range swaps min > max", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{amount}}",
+      [rangeFilter],
+      { amount: ["500", "100"] }
+    );
+    expect(result.sql).toContain("BETWEEN ? AND ?");
+    expect(result.params).toEqual([100, 500]);
+  });
+
+  it("range with empty values generates 1=1", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{amount}}",
+      [rangeFilter],
+      { amount: ["", ""] }
+    );
+    expect(result.sql).toContain("1=1");
+    expect(result.params).toEqual([]);
+  });
+
+  it("range with NaN generates 1=1", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{amount}}",
+      [rangeFilter],
+      { amount: ["abc", "def"] }
+    );
+    expect(result.sql).toContain("1=1");
+    expect(result.params).toEqual([]);
+  });
+
+  it("text generates LIKE with escaped wildcards", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{search}}",
+      [textFilter],
+      { search: "hello" }
+    );
+    expect(result.sql).toContain("LIKE ? ESCAPE");
+    expect(result.params).toEqual(["%hello%"]);
+  });
+
+  it("text escapes % in value", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{search}}",
+      [textFilter],
+      { search: "10%" }
+    );
+    expect(result.params).toEqual(["%10\\%%"]);
+  });
+
+  it("text escapes _ in value", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{search}}",
+      [textFilter],
+      { search: "a_b" }
+    );
+    expect(result.params).toEqual(["%a\\_b%"]);
+  });
+
+  it("text with empty string generates 1=1", () => {
+    const result = interpolateFilters(
+      "SELECT * FROM t WHERE {{search}}",
+      [textFilter],
+      { search: "" }
+    );
+    expect(result.sql).toContain("1=1");
+    expect(result.params).toEqual([]);
+  });
+});
