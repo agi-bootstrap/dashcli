@@ -28,14 +28,14 @@ layout:
 charts:
   - id: total_revenue
     type: kpi
-    query: "SELECT SUM(revenue) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    query: "SELECT SUM(revenue) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
     label: Total Revenue
     format: currency
     position: [0, 0, 1, 1]
 
   - id: avg_deal_size
     type: gauge
-    query: "SELECT ROUND(CAST(SUM(revenue) AS REAL) / SUM(deals), 0) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    query: "SELECT ROUND(CAST(SUM(revenue) AS REAL) / SUM(deals), 0) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
     label: Avg Deal Size
     format: currency
     min: 0
@@ -44,7 +44,7 @@ charts:
 
   - id: win_rate
     type: gauge
-    query: "SELECT ROUND(CAST(SUM(deals) AS REAL) / COUNT(*) * 10, 1) as value FROM sales WHERE {{date_range}} AND {{region}}"
+    query: "SELECT ROUND(CAST(SUM(deals) AS REAL) / COUNT(*) * 10, 1) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
     label: Win Rate
     format: percent
     min: 0
@@ -53,7 +53,7 @@ charts:
 
   - id: by_region_bar
     type: bar
-    query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region ORDER BY revenue DESC"
+    query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region ORDER BY revenue DESC"
     x: region
     y: revenue
     label: Revenue by Region
@@ -61,7 +61,7 @@ charts:
 
   - id: by_region_pie
     type: pie
-    query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region ORDER BY revenue DESC"
+    query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region ORDER BY revenue DESC"
     x: region
     y: revenue
     label: Revenue Split
@@ -69,7 +69,7 @@ charts:
 
   - id: trend
     type: line
-    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY date ORDER BY date"
+    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY date ORDER BY date"
     x: month
     y: revenue
     label: Revenue Trend
@@ -77,7 +77,7 @@ charts:
 
   - id: deals_vs_revenue
     type: scatter
-    query: "SELECT SUM(deals) as deals, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category"
+    query: "SELECT SUM(deals) as deals, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category"
     x: deals
     y: revenue
     label: Deals vs Revenue
@@ -85,7 +85,7 @@ charts:
 
   - id: revenue_area
     type: area
-    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY date ORDER BY date"
+    query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY date ORDER BY date"
     x: month
     y: revenue
     label: Revenue Trend (Area)
@@ -93,7 +93,7 @@ charts:
 
   - id: revenue_stacked
     type: stacked_bar
-    query: "SELECT region, product_category, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category ORDER BY region"
+    query: "SELECT region, product_category, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category ORDER BY region"
     x: region
     y: revenue
     group: product_category
@@ -102,7 +102,7 @@ charts:
 
   - id: deal_funnel
     type: funnel
-    query: "SELECT product_category as stage, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} GROUP BY product_category ORDER BY deals DESC"
+    query: "SELECT product_category as stage, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY product_category ORDER BY deals DESC"
     x: stage
     y: deals
     label: Deals by Category
@@ -110,7 +110,7 @@ charts:
 
   - id: revenue_heatmap
     type: heatmap
-    query: "SELECT region, product_category, SUM(revenue) as total_revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category"
+    query: "SELECT region, product_category, SUM(revenue) as total_revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category"
     x: region
     y: product_category
     value: total_revenue
@@ -119,6 +119,6 @@ charts:
 
   - id: detail_table
     type: table
-    query: "SELECT region, product_category, SUM(revenue) as revenue, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region, product_category ORDER BY revenue DESC"
+    query: "SELECT region, product_category, SUM(revenue) as revenue, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category ORDER BY revenue DESC"
     label: Revenue by Region & Category
     position: [2, 4, 1, 1]
