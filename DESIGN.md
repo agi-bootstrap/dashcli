@@ -158,9 +158,9 @@ All interactive elements (inputs, selects, buttons) must have a minimum height o
 
 ## Filters
 
-Filter controls live in the filter bar. Existing types: `dropdown` and `date_range`.
+Filter controls live in the filter bar. Five types are supported: `date_range`, `dropdown`, `multi_select`, `range`, and `text`.
 
-### Additional Filter Types
+### Filter Types
 
 | Type | Description |
 |------|-------------|
