@@ -6,6 +6,8 @@ A lightweight CLI for creating interactive data dashboards from CSV and JSON fil
 dashcli suggest data.csv        # AI generates dashboard specs from your data
 dashcli serve spec.yaml         # live-reloading dashboard at localhost:3838
 dashcli export spec.yaml        # standalone HTML you can email or host anywhere
+dashcli read spec.yaml          # structured spec summary (text or JSON)
+dashcli diff a.yaml b.yaml      # compare two specs, see what changed
 ```
 
 ## Install
@@ -37,7 +39,7 @@ Scaffolds a new dashboard with sample data (`sales.csv`) and a ready-to-edit YAM
 
 Launches a local server on port 3838 with:
 
-- Interactive filters (date range, dropdown)
+- Interactive filters (date range, dropdown, multi-select, range, text search)
 - Live reload via SSE — edit the YAML or data file and the browser updates automatically
 - Responsive layout (CSS Grid, mobile breakpoint at 768px)
 
@@ -48,6 +50,25 @@ Exports a self-contained HTML file with ECharts and all data embedded. Works off
 ### `dashcli suggest <source> [--out dir]`
 
 Analyzes your CSV/JSON data and generates 3-5 dashboard specs using Claude (requires `ANTHROPIC_API_KEY`). Each spec is validated against the schema before writing.
+
+### `dashcli read <spec.yaml>`
+
+Parses a YAML spec and outputs a structured summary: name, title, source, charts (id, type, position), filters, and layout. Works offline with no API key.
+
+### `dashcli diff <specA> <specB>`
+
+Compares two dashboard specs and outputs a structured changelog keyed by chart/filter ID — added, removed, and changed items with field-level detail.
+
+### Global flags
+
+| Flag | Effect |
+|------|--------|
+| `--json` | Outputs machine-readable JSON envelope: `{ ok, data, error: { message, code } }` |
+| `--format <text\|json>` | Output format (`--json` always wins if both are set) |
+
+**Error codes:** `SPEC_VALIDATION`, `FILE_NOT_FOUND`, `YAML_PARSE_ERROR`, `DATA_SOURCE_ERROR`, `RUNTIME_ERROR`, `UNKNOWN_COMMAND`
+
+**Exit codes:** 0 = success, 1 = validation/file error, 2 = data source error, 3 = runtime error
 
 ## Dashboard spec
 
@@ -136,9 +157,14 @@ src/
   json.ts         JSON adapter
   export.ts       Standalone HTML export
   suggest.ts      AI-powered spec generation (Claude API)
+  read.ts         dashcli read — spec summary output
+  diff.ts         dashcli diff — spec comparison
+  cli-utils.ts    JSON envelope, error codes, output formatting
+  gen-schema.ts   JSON Schema generator (Zod -> JSON Schema)
 
+schema/           Published JSON Schema for dashboard specs
 sample/           Example dashboards and data
-test/             Test suite
+test/             Test suite (239 tests across 20 files)
 ```
 
 ## Development
@@ -147,6 +173,7 @@ test/             Test suite
 bun run dev              # run CLI in dev mode
 bun run typecheck        # type-check without emitting
 bun test                 # run test suite
+bun run gen:schema       # regenerate JSON Schema from Zod spec
 ```
 
 ## Design
