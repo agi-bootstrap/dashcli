@@ -79,7 +79,9 @@ body {
   background: var(--surface);
   color: var(--text);
   outline: none;
+  transition: border-color 150ms ease;
 }
+select.filter-input { cursor: pointer; }
 .filter-input:focus { border-color: var(--accent); }
 .filter-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .filter-sep { color: var(--text-muted); font-size: 12px; }
