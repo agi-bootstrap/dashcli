@@ -146,4 +146,35 @@ describe("DashboardSpec schema", () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it("rejects duplicate chart IDs", () => {
+    const result = DashboardSpec.safeParse({
+      name: "dup-ids",
+      title: "Duplicate IDs",
+      source: "./data.csv",
+      layout: { columns: 2 },
+      charts: [
+        { id: "c1", type: "kpi", query: "SELECT 1 as value", position: [0, 0, 1, 1] },
+        { id: "c1", type: "kpi", query: "SELECT 2 as value", position: [1, 0, 1, 1] },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects duplicate filter IDs", () => {
+    const result = DashboardSpec.safeParse({
+      name: "dup-filters",
+      title: "Duplicate Filters",
+      source: "./data.csv",
+      layout: { columns: 2 },
+      charts: [
+        { id: "c1", type: "kpi", query: "SELECT 1 as value", position: [0, 0, 1, 1] },
+      ],
+      filters: [
+        { id: "f1", type: "dropdown", column: "region", default: "all" },
+        { id: "f1", type: "dropdown", column: "category", default: "all" },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
 });

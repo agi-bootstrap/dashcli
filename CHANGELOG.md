@@ -2,6 +2,25 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.2.0] - 2026-03-24
+
+### Added
+- `dashcli read <spec>` command — parse a YAML spec and output a structured summary (name, title, charts, filters, layout). Works offline with no API key
+- `dashcli diff <specA> <specB>` command — compare two specs and output a structured changelog keyed by chart/filter ID (added, removed, changed with field names)
+- `--json` flag on all commands — outputs machine-readable JSON envelope: `{ ok, data, error: { message, code, context } }`
+- `--format <text|json>` flag for output format control (`--json` always wins)
+- JSON Schema publication — `bun run gen:schema` generates `schema/dashboard-spec.schema.json` from the Zod spec
+- Structured error codes: `SPEC_VALIDATION`, `FILE_NOT_FOUND`, `YAML_PARSE_ERROR`, `DATA_SOURCE_ERROR`, `RUNTIME_ERROR`, `UNKNOWN_COMMAND`
+- Exit code mapping: 0=success, 1=validation/file error, 2=data source error, 3=runtime error
+- Chart ID uniqueness validation in schema (rejects duplicate chart IDs)
+- File size check (100MB limit) with clear error message suggesting DuckDB for large datasets
+- 56 new tests across 4 test files (cli-utils, read, diff, json-output) — 196 total
+
+### Fixed
+- CSV type inference now samples up to 10 rows instead of just the first row, preventing mistyped columns when the first row has atypical values
+- Row coercion uses the multi-row inferred column type instead of re-inferring from row 0
+- `exportDashboard()` now returns the output file path for `--json` mode support
+
 ## [0.1.2.1] - 2026-03-23
 
 ### Added

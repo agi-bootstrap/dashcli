@@ -14,13 +14,14 @@ export function loadCsv(csvPath: string): Database {
 
   const db = new Database(":memory:");
 
-  // Infer column types from first data row
-  const colDefs = headers.map((h, i) => {
-    const sample = rows[0]?.[i] ?? "";
-    const type = inferSqliteType(sample);
-    return `"${escId(h)}" ${type}`;
+  // Infer column types by sampling up to 10 data rows
+  const sampleRows = rows.slice(0, Math.min(10, rows.length));
+  const columnTypes = headers.map((h, i) => {
+    const samples = sampleRows.map((r) => r[i] ?? "").filter((s) => s !== "");
+    return samples.length === 0 ? "TEXT" : inferSqliteTypeFromSamples(samples);
   });
 
+  const colDefs = headers.map((h, i) => `"${escId(h)}" ${columnTypes[i]}`);
   db.run(`CREATE TABLE "${tableName}" (${colDefs.join(", ")})`);
 
   const placeholders = headers.map(() => "?").join(", ");
@@ -28,7 +29,7 @@ export function loadCsv(csvPath: string): Database {
 
   const insertAll = db.transaction((rows: string[][]) => {
     for (const row of rows) {
-      const values = row.map((val, i) => coerce(val, headers[i], rows[0]?.[i] ?? ""));
+      const values = row.map((val, i) => coerceToType(val, columnTypes[i]));
       insert.run(...values);
     }
   });
@@ -70,9 +71,18 @@ function inferSqliteType(sample: string): string {
   return "TEXT";
 }
 
-function coerce(val: string, _header: string, sample: string): string | number | null {
+/** Infer type from multiple samples — falls back to TEXT if any sample disagrees. */
+function inferSqliteTypeFromSamples(samples: string[]): string {
+  const types = samples.map(inferSqliteType);
+  const unique = new Set(types);
+  if (unique.size === 1) return types[0];
+  // Mixed INTEGER/REAL → REAL; anything else → TEXT
+  if (unique.size === 2 && unique.has("INTEGER") && unique.has("REAL")) return "REAL";
+  return "TEXT";
+}
+
+function coerceToType(val: string, type: string): string | number | null {
   if (val === "") return null;
-  const type = inferSqliteType(sample);
   if (type === "INTEGER") { const n = parseInt(val, 10); return isNaN(n) ? val : n; }
   if (type === "REAL") { const n = parseFloat(val); return isNaN(n) ? val : n; }
   return val;

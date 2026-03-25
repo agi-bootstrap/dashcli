@@ -1,6 +1,9 @@
 import type { Database } from "bun:sqlite";
+import { statSync } from "fs";
 import { loadCsv } from "./csv";
 import { loadJson } from "./json";
+
+const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100 MB
 
 export interface DataSourceResult {
   db: Database;
@@ -37,6 +40,15 @@ export function loadDataSource(filePath: string): DataSourceResult {
     const supported = Object.keys(ADAPTERS).join(", ");
     throw new Error(`Unsupported data source extension "${ext}". Supported: ${supported}`);
   }
+
+  const fileSize = statSync(filePath).size;
+  if (fileSize > MAX_FILE_SIZE_BYTES) {
+    const sizeMb = (fileSize / (1024 * 1024)).toFixed(0);
+    throw new Error(
+      `File too large: ${sizeMb} MB (limit: 100 MB). For large datasets, use a dedicated database tool like Aeolus or DuckDB.`
+    );
+  }
+
   return {
     db: loader(filePath),
     tableName: deriveTableName(filePath),
