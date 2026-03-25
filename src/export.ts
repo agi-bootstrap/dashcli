@@ -11,7 +11,7 @@ export async function exportDashboard(specPath: string, outDir?: string): Promis
   const { spec, db, dropdownValues } = ctx;
 
   // Pre-run all chart queries with default filter values
-  const defaultFilters: Record<string, string | [string, string]> = {};
+  const defaultFilters: Record<string, string | string[] | [string, string] | [number, number]> = {};
   for (const f of spec.filters) {
     defaultFilters[f.id] = f.default;
   }

@@ -150,6 +150,119 @@ describe("KPI mobile responsiveness", () => {
   });
 });
 
+describe("new chart types", () => {
+  const specWith = (charts: DashboardSpec["charts"]): DashboardSpec => ({
+    name: "test",
+    title: "Test",
+    source: "./data.csv",
+    refresh: "manual",
+    layout: { columns: 3, rows: "auto" },
+    filters: [],
+    charts,
+  });
+
+  describe("area chart", () => {
+    const html = renderDashboardHtml(specWith([
+      { id: "a1", type: "area", query: "SELECT 1", label: "Area", x: "month", y: "revenue", position: [0, 0, 1, 1] }
+    ]));
+
+    it("routes area type through renderEChart", () => {
+      expect(html).toContain("chart.type === 'area'");
+    });
+
+    it("includes areaStyle for area charts", () => {
+      expect(html).toContain("areaStyle: chart.type === 'area'");
+    });
+  });
+
+  describe("stacked_bar chart", () => {
+    const html = renderDashboardHtml(specWith([
+      { id: "s1", type: "stacked_bar", query: "SELECT 1", label: "Stacked", x: "region", y: "revenue", group: "category", position: [0, 0, 1, 1] }
+    ]));
+
+    it("includes renderStackedBarChart function", () => {
+      expect(html).toContain("function renderStackedBarChart(");
+    });
+
+    it("uses stack total for stacking", () => {
+      expect(html).toContain("stack: 'total'");
+    });
+  });
+
+  describe("heatmap chart", () => {
+    const html = renderDashboardHtml(specWith([
+      { id: "h1", type: "heatmap", query: "SELECT 1", label: "Heatmap", x: "region", y: "category", value: "total", position: [0, 0, 1, 1] }
+    ]));
+
+    it("includes renderHeatmapChart function", () => {
+      expect(html).toContain("function renderHeatmapChart(");
+    });
+
+    it("includes visualMap configuration", () => {
+      expect(html).toContain("visualMap");
+    });
+  });
+
+  describe("funnel chart", () => {
+    const html = renderDashboardHtml(specWith([
+      { id: "f1", type: "funnel", query: "SELECT 1", label: "Funnel", x: "stage", y: "count", position: [0, 0, 1, 1] }
+    ]));
+
+    it("includes renderFunnelChart function", () => {
+      expect(html).toContain("function renderFunnelChart(");
+    });
+
+    it("sets funnel type", () => {
+      expect(html).toContain("type: 'funnel'");
+    });
+  });
+});
+
+describe("new filter types", () => {
+  const specWithFilters = (filters: DashboardSpec["filters"]): DashboardSpec => ({
+    name: "test",
+    title: "Test",
+    source: "./data.csv",
+    refresh: "manual",
+    layout: { columns: 3, rows: "auto" },
+    filters,
+    charts: [{ id: "k1", type: "kpi", query: "SELECT 1", position: [0, 0, 1, 1] }],
+  });
+
+  it("renders multi_select as select with multiple attribute", () => {
+    const html = renderDashboardHtml(specWithFilters([
+      { id: "region", type: "multi_select", column: "region", default: [] }
+    ]));
+    expect(html).toContain('multiple');
+    expect(html).toContain('id="filter-region"');
+  });
+
+  it("renders range filter with two number inputs", () => {
+    const html = renderDashboardHtml(specWithFilters([
+      { id: "amount", type: "range", column: "amount", default: [0, 1000] }
+    ]));
+    expect(html).toContain('type="number"');
+    expect(html).toContain('id="filter-amount-min"');
+    expect(html).toContain('id="filter-amount-max"');
+  });
+
+  it("renders text filter with text input", () => {
+    const html = renderDashboardHtml(specWithFilters([
+      { id: "search", type: "text", column: "name", default: "" }
+    ]));
+    expect(html).toContain('type="text"');
+    expect(html).toContain('placeholder="Search..."');
+    expect(html).toContain('id="filter-search"');
+  });
+
+  it("multi_select has aria-label", () => {
+    const html = renderDashboardHtml(specWithFilters([
+      { id: "region", type: "multi_select", column: "region", default: [] }
+    ]));
+    expect(html).toContain('aria-label="region"');
+  });
+});
+
 describe("all chart types in single dashboard", () => {
   const html = renderDashboardHtml(
     specWith([

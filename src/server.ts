@@ -33,7 +33,7 @@ export function loadDashboard(specPath: string): ServerContext {
   // Pre-compute distinct values for dropdown filters
   const dropdownValues = new Map<string, string[]>();
   for (const filter of spec.filters) {
-    if (filter.type === "dropdown") {
+    if (filter.type === "dropdown" || filter.type === "multi_select") {
       try {
         const col = filter.column.replace(/"/g, '""');
         const rows = db
@@ -174,14 +174,30 @@ export function startServer(specPath: string, port: number = 3838) {
         }
 
         // Parse filter values from query string
-        const filterValues: Record<string, string | [string, string]> = {};
+        const filterValues: Record<string, string | string[] | [string, string]> = {};
         for (const filter of ctx.spec.filters) {
-          const raw = url.searchParams.get(filter.id);
-          if (raw && filter.type === "date_range") {
-            const parts = raw.split(",");
-            filterValues[filter.id] = [parts[0], parts[1] || parts[0]];
-          } else if (raw) {
-            filterValues[filter.id] = raw;
+          if (filter.type === "date_range") {
+            const raw = url.searchParams.get(filter.id);
+            if (raw) {
+              const parts = raw.split(",");
+              filterValues[filter.id] = [parts[0], parts[1] || parts[0]];
+            }
+          } else if (filter.type === "multi_select") {
+            const values = url.searchParams.getAll(filter.id);
+            if (values.length > 0) {
+              filterValues[filter.id] = values;
+            }
+          } else if (filter.type === "range") {
+            const raw = url.searchParams.get(filter.id);
+            if (raw) {
+              const parts = raw.split(",");
+              filterValues[filter.id] = [parts[0], parts[1] || parts[0]];
+            }
+          } else {
+            const raw = url.searchParams.get(filter.id);
+            if (raw) {
+              filterValues[filter.id] = raw;
+            }
           }
         }
 

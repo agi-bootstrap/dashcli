@@ -24,6 +24,11 @@ After connecting a data source, analyze schema and suggest 3-5 relevant dashboar
 Reduces time-to-first-dashboard to near-zero. Major differentiator.
 **Completed:** v0.1.2.0 (2026-03-23) — full implementation with LLM trust boundary hardening
 
+### Expand chart & filter vocabulary
+Add area, stacked_bar, heatmap, funnel chart types and multi_select, range, text filter types.
+Highest-impact step for dashboard expressiveness — all additive, existing specs unaffected.
+**Completed:** v0.1.3.0 (2026-03-25) — 4 chart types, 3 filter types, 57 new tests
+
 ### P0+P1: Agent-first CLI output + read/diff commands
 `--json` flag on all commands, `dashcli read`, `dashcli diff`, JSON Schema publication,
 structured error codes, chart ID uniqueness, CSV type inference fix, file size check.

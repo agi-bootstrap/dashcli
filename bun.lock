@@ -6,7 +6,7 @@
       "name": "dashcli",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.80.0",
-        "yaml": "^2.7.0",
+        "yaml": "^2.8.3",
         "zod": "^3.24.0",
         "zod-to-json-schema": "^3.24.0",
       },
