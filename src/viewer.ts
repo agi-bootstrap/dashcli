@@ -77,6 +77,7 @@ body {
   background: var(--surface);
   color: var(--text);
   outline: none;
+  cursor: pointer;
 }
 .filter-input:focus { border-color: var(--accent); }
 .filter-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
