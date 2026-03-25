@@ -42,8 +42,6 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: calc(var(--sp) * 4) calc(var(--sp) * 6);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
 }
 .header h1 { font-size: 22px; font-weight: 600; line-height: 1.2; }
 .header .subtitle {
@@ -59,8 +57,6 @@ body {
   align-items: center;
   gap: calc(var(--sp) * 3);
   padding: calc(var(--sp) * 3) calc(var(--sp) * 6);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
 }
 .filter-group { display: flex; align-items: center; gap: calc(var(--sp) * 2); }
 .filter-label {
@@ -96,7 +92,16 @@ body {
   max-width: 1440px;
   margin: 0 auto;
 }
-.header, .filter-bar { max-width: 1440px; margin-left: auto; margin-right: auto; }
+/* Full-width background wrappers with constrained inner content */
+.header-wrap, .filter-wrap {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.header-wrap > .header, .filter-wrap > .filter-bar {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* Cards */
 .card {
@@ -184,14 +189,16 @@ body {
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <h1>${escHtml(spec.title)}</h1>
-    <div class="subtitle">dashcli &middot; ${escHtml(spec.name)}.yaml</div>
+<div class="header-wrap">
+  <div class="header">
+    <div>
+      <h1>${escHtml(spec.title)}</h1>
+      <div class="subtitle">dashcli &middot; ${escHtml(spec.name)}.yaml</div>
+    </div>
   </div>
 </div>
 
-${renderFilterBar(spec.filters)}
+${renderFilterBarWrapped(spec.filters)}
 
 <div class="dashboard-grid">
 ${spec.charts.map((chart) => renderChartCard(chart)).join("\n")}
@@ -536,7 +543,7 @@ if (window.location.protocol !== 'file:') {
 </html>`;
 }
 
-function renderFilterBar(filters: FilterSpec[]): string {
+function renderFilterBarWrapped(filters: FilterSpec[]): string {
   if (!filters.length) return "";
 
   const groups = filters.map((f) => {
@@ -559,7 +566,7 @@ function renderFilterBar(filters: FilterSpec[]): string {
     }
   });
 
-  return `<div class="filter-bar">${groups.join("\n")}</div>`;
+  return `<div class="filter-wrap"><div class="filter-bar">${groups.join("\n")}</div></div>`;
 }
 
 function renderChartCard(chart: ChartSpec): string {
