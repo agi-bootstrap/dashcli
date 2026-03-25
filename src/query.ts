@@ -2,7 +2,7 @@ import type { Database } from "bun:sqlite";
 import type { FilterSpec } from "./schema";
 
 interface FilterValues {
-  [filterId: string]: string | [string, string];
+  [filterId: string]: string | string[] | [string, string] | [number, number];
 }
 
 interface InterpolationResult {
@@ -45,6 +45,43 @@ export function interpolateFilters(
         const count = sql.split(placeholder).length - 1;
         sql = sql.replaceAll(placeholder, replacement);
         for (let i = 0; i < count; i++) params.push(v);
+      }
+    } else if (filter.type === "multi_select") {
+      const values = Array.isArray(value) ? value.filter(v => typeof v === "string") : [String(value)];
+      if (values.length === 0) {
+        sql = sql.replaceAll(placeholder, "1=1");
+      } else {
+        const capped = values.slice(0, 100);
+        const placeholders = capped.map(() => "?").join(", ");
+        const replacement = `"${col}" IN (${placeholders})`;
+        const count = sql.split(placeholder).length - 1;
+        sql = sql.replaceAll(placeholder, replacement);
+        for (let i = 0; i < count; i++) params.push(...capped);
+      }
+    } else if (filter.type === "range") {
+      const raw = Array.isArray(value) ? value : [value, value];
+      const min = Number(raw[0]);
+      const max = Number(raw[1]);
+      if (isNaN(min) || isNaN(max) || raw[0] === "" || raw[1] === "") {
+        sql = sql.replaceAll(placeholder, "1=1");
+      } else {
+        const lo = Math.min(min, max);
+        const hi = Math.max(min, max);
+        const replacement = `"${col}" BETWEEN ? AND ?`;
+        const count = sql.split(placeholder).length - 1;
+        sql = sql.replaceAll(placeholder, replacement);
+        for (let i = 0; i < count; i++) params.push(lo, hi);
+      }
+    } else if (filter.type === "text") {
+      const v = Array.isArray(value) ? String(value[0] ?? "") : String(value);
+      if (!v) {
+        sql = sql.replaceAll(placeholder, "1=1");
+      } else {
+        const escaped = v.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+        const replacement = `"${col}" LIKE ? ESCAPE '\\'`;
+        const count = sql.split(placeholder).length - 1;
+        sql = sql.replaceAll(placeholder, replacement);
+        for (let i = 0; i < count; i++) params.push(`%${escaped}%`);
       }
     }
   }

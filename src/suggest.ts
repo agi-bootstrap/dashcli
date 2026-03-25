@@ -75,9 +75,9 @@ refresh: manual
 
 filters:
   - id: <filter_id>
-    type: date_range | dropdown
+    type: date_range | dropdown | multi_select | range | text
     column: <column_name>
-    default: ["start", "end"] | all
+    default: ["start", "end"] | all | [] | [min, max] | ""
 
 layout:
   columns: 3
@@ -85,11 +85,13 @@ layout:
 
 charts:
   - id: <chart_id>
-    type: bar | line | kpi | table | pie | scatter | gauge
+    type: bar | line | kpi | table | pie | scatter | gauge | area | stacked_bar | heatmap | funnel
     query: "SELECT ... FROM <TABLE> WHERE {{filter_id}} ..."
     position: [col_start, row_start, col_span, row_span]
-    x: <column>        # required for bar, line, pie, scatter
-    y: <column>        # required for bar, line, pie, scatter
+    x: <column>        # required for bar, line, pie, scatter, area, stacked_bar, heatmap, funnel
+    y: <column>        # required for bar, line, pie, scatter, area, stacked_bar, heatmap, funnel
+    group: <column>    # required for stacked_bar
+    value: <column>    # required for heatmap
     label: <title>
     format: currency | number | percent  # optional, for kpi/gauge/table
     min: 0             # optional, for gauge
@@ -100,7 +102,7 @@ Rules:
 1. Use the exact table name provided in the schema summary. All SQL queries must reference this table.
 2. Use \`source: <SOURCE_PLACEHOLDER>\` — it will be replaced with the actual file path.
 3. Positions are 0-indexed [col_start, row_start, col_span, row_span]. Grid is 3 columns by default. Position values must avoid overlaps.
-4. Charts of type bar, line, pie, scatter MUST have both x and y fields.
+4. Charts of type bar, line, pie, scatter, area, stacked_bar, heatmap, funnel MUST have both x and y fields. stacked_bar also requires a group field. heatmap also requires a value field.
 5. KPI charts should query a single "value" column (e.g., SELECT SUM(col) as value).
 6. Gauge charts need min and max fields.
 7. Filter placeholders use {{filter_id}} syntax in SQL queries. Only include filters you define.

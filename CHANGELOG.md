@@ -2,6 +2,27 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.3.0] - 2026-03-25
+
+### Added
+- 4 new chart types: `area` (filled line), `stacked_bar` (multi-series composition), `heatmap` (two-axis intensity grid), `funnel` (stage progression)
+- 3 new filter types: `multi_select` (pick multiple values, IN clause), `range` (numeric min/max, BETWEEN), `text` (free text search, LIKE with escaped wildcards)
+- `group` field for stacked_bar charts, `value` field for heatmap charts
+- Sample dashboard (`all-charts-dashboard.yaml`) showcasing all 11 chart types and 4 filter types
+- Export support for all new chart and filter types
+- Empty-data guards on all new chart renderers
+- Accessibility: `aria-label` on all new filter inputs, `flex-wrap` on filter bar for 5+ filters
+- CSS: `cursor: pointer` on select inputs, `transition: border-color 150ms` on filter focus
+- Multi-select uses repeated URL params (handles values containing commas)
+- Range filter swaps min/max when inverted, falls back to 1=1 on NaN/empty
+- Text filter escapes `%` and `_` to prevent LIKE wildcard injection
+- Multi-select IN clause capped at 100 values
+- 57 new tests covering schema validation, query interpolation, viewer rendering, server parsing, and export integration
+
+### Changed
+- Updated `dashcli suggest` system prompt to include new chart and filter types
+- DESIGN.md updated with specs for all new chart and filter types
+
 ## [0.1.2.1] - 2026-03-23
 
 ### Added

@@ -55,7 +55,9 @@ body {
 .filter-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: calc(var(--sp) * 3);
+  row-gap: calc(var(--sp) * 2);
   padding: calc(var(--sp) * 3) calc(var(--sp) * 6);
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -77,10 +79,13 @@ body {
   background: var(--surface);
   color: var(--text);
   outline: none;
+  transition: border-color 150ms ease;
 }
+select.filter-input { cursor: pointer; }
 .filter-input:focus { border-color: var(--accent); }
 .filter-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .filter-sep { color: var(--text-muted); font-size: 12px; }
+select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
 
 /* Dashboard grid */
 .dashboard-grid {
@@ -209,13 +214,34 @@ function getFilterValues() {
       vals[f.id] = start + ',' + end;
     } else if (f.type === 'dropdown') {
       vals[f.id] = document.getElementById('filter-' + f.id)?.value || 'all';
+    } else if (f.type === 'multi_select') {
+      const select = document.getElementById('filter-' + f.id);
+      if (select) {
+        vals[f.id] = Array.from(select.selectedOptions).map(function(o) { return o.value; });
+      } else {
+        vals[f.id] = [];
+      }
+    } else if (f.type === 'range') {
+      const min = document.getElementById('filter-' + f.id + '-min')?.value || '';
+      const max = document.getElementById('filter-' + f.id + '-max')?.value || '';
+      vals[f.id] = min + ',' + max;
+    } else if (f.type === 'text') {
+      vals[f.id] = document.getElementById('filter-' + f.id)?.value || '';
     }
   }
   return vals;
 }
 
 function buildQueryString(filters) {
-  return new URLSearchParams(filters).toString();
+  const params = new URLSearchParams();
+  for (const [key, val] of Object.entries(filters)) {
+    if (Array.isArray(val)) {
+      for (const v of val) params.append(key, v);
+    } else {
+      params.set(key, val);
+    }
+  }
+  return params.toString();
 }
 
 async function fetchChartData(chartId) {
@@ -249,7 +275,7 @@ async function renderChart(chart) {
   if (!container) return;
 
   // For ECharts types, show loading on existing instance or set placeholder
-  if (['bar','line','pie','scatter','gauge'].includes(chart.type) && chartInstances[chart.id]) {
+  if (['bar','line','pie','scatter','gauge','area','stacked_bar','heatmap','funnel'].includes(chart.type) && chartInstances[chart.id]) {
     chartInstances[chart.id].showLoading();
   } else {
     container.innerHTML = '<div class="chart-loading">Loading...</div>';
@@ -268,8 +294,14 @@ async function renderChart(chart) {
       renderScatterChart(container, chart, data);
     } else if (chart.type === 'gauge') {
       renderGaugeChart(container, chart, data);
-    } else if (chart.type === 'bar' || chart.type === 'line') {
+    } else if (chart.type === 'bar' || chart.type === 'line' || chart.type === 'area') {
       renderEChart(container, chart, data);
+    } else if (chart.type === 'stacked_bar') {
+      renderStackedBarChart(container, chart, data);
+    } else if (chart.type === 'heatmap') {
+      renderHeatmapChart(container, chart, data);
+    } else if (chart.type === 'funnel') {
+      renderFunnelChart(container, chart, data);
     }
   } catch (err) {
     if (chartInstances[chart.id]) {
@@ -355,14 +387,14 @@ function renderEChart(container, chart, data) {
       splitLine: { lineStyle: { color: '#f0f0f0' } },
     },
     series: [{
-      type: chart.type,
+      type: chart.type === 'area' ? 'line' : chart.type,
       data: yData,
       itemStyle: { color: '#2563eb', borderRadius: chart.type === 'bar' ? [4, 4, 0, 0] : undefined },
-      lineStyle: chart.type === 'line' ? { width: 2.5, color: '#2563eb' } : undefined,
-      areaStyle: undefined,
-      smooth: chart.type === 'line',
-      symbol: chart.type === 'line' ? 'circle' : undefined,
-      symbolSize: chart.type === 'line' ? 6 : undefined,
+      lineStyle: (chart.type === 'line' || chart.type === 'area') ? { width: 2.5, color: '#2563eb' } : undefined,
+      areaStyle: chart.type === 'area' ? { color: 'rgba(37, 99, 235, 0.15)' } : undefined,
+      smooth: chart.type === 'line' || chart.type === 'area',
+      symbol: (chart.type === 'line' || chart.type === 'area') ? 'circle' : undefined,
+      symbolSize: (chart.type === 'line' || chart.type === 'area') ? 6 : undefined,
     }],
   }, true); // true = notMerge, replace entire option
 
@@ -478,6 +510,177 @@ function renderGaugeChart(container, chart, data) {
   instance.hideLoading();
 }
 
+function renderStackedBarChart(container, chart, data) {
+  if (!data.length) {
+    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const xValues = [];
+  const groupSet = new Set();
+  for (const r of data) {
+    if (xValues.indexOf(r[chart.x]) === -1) xValues.push(r[chart.x]);
+    groupSet.add(r[chart.group]);
+  }
+  const groups = Array.from(groupSet);
+
+  const series = groups.map(function(g, i) {
+    var opacity = groups.length <= 1 ? 1 : 1 - (i / (groups.length - 1)) * 0.7;
+    var groupData = xValues.map(function(x) {
+      var row = data.find(function(r) { return r[chart.x] === x && r[chart.group] === g; });
+      return row ? Number(row[chart.y]) : 0;
+    });
+    return {
+      name: String(g),
+      type: 'bar',
+      stack: 'total',
+      data: groupData,
+      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')', borderRadius: [0, 0, 0, 0] },
+    };
+  });
+  if (series.length) series[series.length - 1].itemStyle.borderRadius = [4, 4, 0, 0];
+
+  var showLegend = groups.length <= 8;
+  instance.setOption({
+    tooltip: { trigger: 'axis' },
+    legend: { show: showLegend, bottom: 0, textStyle: { fontSize: 11, color: '#737373' } },
+    grid: { left: 16, right: 16, top: 16, bottom: showLegend ? 48 : 32, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: xValues,
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { lineStyle: { color: '#e2e2e2' } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { show: false },
+      splitLine: { lineStyle: { color: '#f0f0f0' } },
+    },
+    series: series,
+  }, true);
+
+  instance.hideLoading();
+}
+
+function renderHeatmapChart(container, chart, data) {
+  if (!data.length) {
+    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const xValues = [];
+  const yValues = [];
+  for (const r of data) {
+    if (xValues.indexOf(r[chart.x]) === -1) xValues.push(r[chart.x]);
+    if (yValues.indexOf(r[chart.y]) === -1) yValues.push(r[chart.y]);
+  }
+
+  const heatData = data.map(function(r) {
+    return [xValues.indexOf(r[chart.x]), yValues.indexOf(r[chart.y]), Number(r[chart.value])];
+  });
+  const maxVal = heatData.reduce(function(m, d) { return Math.max(m, d[2]); }, 0) || 1;
+
+  instance.setOption({
+    tooltip: {
+      formatter: function(p) {
+        return esc(String(xValues[p.value[0]])) + ' / ' + esc(String(yValues[p.value[1]])) + ': ' + Number(p.value[2]).toLocaleString();
+      }
+    },
+    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: xValues,
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { lineStyle: { color: '#e2e2e2' } },
+      axisTick: { show: false },
+    },
+    yAxis: {
+      type: 'category',
+      data: yValues,
+      axisLabel: { fontSize: 11, color: '#737373' },
+      axisLine: { show: false },
+    },
+    visualMap: {
+      min: 0,
+      max: maxVal,
+      inRange: { color: ['#f0f4ff', '#2563eb'] },
+      show: false,
+    },
+    series: [{
+      type: 'heatmap',
+      data: heatData,
+      label: { show: false },
+      itemStyle: { borderColor: '#ffffff', borderWidth: 2, borderRadius: 2 },
+    }],
+  }, true);
+
+  instance.hideLoading();
+}
+
+function renderFunnelChart(container, chart, data) {
+  if (!data.length) {
+    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
+    container.innerHTML = '<div class="chart-loading">No data</div>';
+    return;
+  }
+
+  let instance = chartInstances[chart.id];
+  if (!instance) {
+    container.innerHTML = '';
+    instance = echarts.init(container);
+    chartInstances[chart.id] = instance;
+    const ro = new ResizeObserver(() => instance.resize());
+    ro.observe(container);
+  }
+
+  const funnelData = data.map(function(r, i) {
+    var opacity = data.length <= 1 ? 1 : 1 - (i / (data.length - 1)) * 0.7;
+    return {
+      name: String(r[chart.x]),
+      value: Number(r[chart.y]),
+      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')' },
+    };
+  });
+
+  instance.setOption({
+    tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+    series: [{
+      type: 'funnel',
+      left: '10%',
+      width: '80%',
+      top: 16,
+      bottom: 16,
+      data: funnelData,
+      label: { fontSize: 11, color: '#737373' },
+      itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
+    }],
+  }, true);
+
+  instance.hideLoading();
+}
+
 async function loadAll() {
   await Promise.all(SPEC.charts.map(c => renderChart(c)));
 }
@@ -507,6 +710,13 @@ async function populateDropdowns() {
         select.appendChild(el);
       }
     }
+    // Also listen for input events on text/number filters
+    document.querySelectorAll('input.filter-input[type="text"], input.filter-input[type="number"]').forEach(function(el) {
+      el.addEventListener('input', function() {
+        clearTimeout(_filterTimer);
+        _filterTimer = setTimeout(function() { loadAll(); }, 150);
+      });
+    });
   } catch {}
 }
 
@@ -536,18 +746,38 @@ function renderFilterBar(filters: FilterSpec[]): string {
   if (!filters.length) return "";
 
   const groups = filters.map((f) => {
+    const labelText = escHtml(f.id.replace(/_/g, " "));
     if (f.type === "date_range") {
       const [start, end] = Array.isArray(f.default) ? f.default : ["", ""];
-      const labelText = escHtml(f.id.replace(/_/g, " "));
       return `<div class="filter-group">
   <label class="filter-label" for="filter-${escHtml(f.id)}-start">${labelText}</label>
   <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-start" value="${escHtml(start)}" aria-label="${labelText} start">
   <span class="filter-sep">&rarr;</span>
   <input type="date" class="filter-input" id="filter-${escHtml(f.id)}-end" value="${escHtml(end)}" aria-label="${labelText} end">
 </div>`;
+    } else if (f.type === "multi_select") {
+      return `<div class="filter-group">
+  <label class="filter-label" for="filter-${escHtml(f.id)}">${labelText}</label>
+  <select class="filter-input" id="filter-${escHtml(f.id)}" multiple aria-label="${labelText}">
+  </select>
+</div>`;
+    } else if (f.type === "range") {
+      const defaults = Array.isArray(f.default) ? f.default : [0, 100];
+      return `<div class="filter-group">
+  <label class="filter-label" for="filter-${escHtml(f.id)}-min">${labelText}</label>
+  <input type="number" class="filter-input" id="filter-${escHtml(f.id)}-min" value="${escHtml(String(defaults[0]))}" aria-label="${labelText} min">
+  <span class="filter-sep">&rarr;</span>
+  <input type="number" class="filter-input" id="filter-${escHtml(f.id)}-max" value="${escHtml(String(defaults[1]))}" aria-label="${labelText} max">
+</div>`;
+    } else if (f.type === "text") {
+      const defaultVal = typeof f.default === "string" ? f.default : "";
+      return `<div class="filter-group">
+  <label class="filter-label" for="filter-${escHtml(f.id)}">${labelText}</label>
+  <input type="text" class="filter-input" id="filter-${escHtml(f.id)}" value="${escHtml(defaultVal)}" placeholder="Search..." aria-label="${labelText}">
+</div>`;
     } else {
       return `<div class="filter-group">
-  <label class="filter-label" for="filter-${escHtml(f.id)}">${escHtml(f.id.replace(/_/g, " "))}</label>
+  <label class="filter-label" for="filter-${escHtml(f.id)}">${labelText}</label>
   <select class="filter-input" id="filter-${escHtml(f.id)}">
     <option value="all">All</option>
   </select>
