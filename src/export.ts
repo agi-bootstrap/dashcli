@@ -94,8 +94,8 @@ async function populateDropdowns() {
 
   // Hide filter bar in export — filters can't work without a server
   html = html.replace(
-    '<div class="filter-bar">',
-    '<div class="filter-bar" style="display:none">'
+    '<div class="filter-wrap">',
+    '<div class="filter-wrap" style="display:none">'
   );
 
   // Update subtitle to indicate this is an export with timestamp

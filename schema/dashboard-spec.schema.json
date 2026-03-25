@@ -32,7 +32,10 @@
                 "type": "string",
                 "enum": [
                   "date_range",
-                  "dropdown"
+                  "dropdown",
+                  "multi_select",
+                  "range",
+                  "text"
                 ]
               },
               "column": {
@@ -55,6 +58,25 @@
                   },
                   {
                     "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
                   }
                 ]
               }
@@ -101,7 +123,11 @@
                   "table",
                   "pie",
                   "scatter",
-                  "gauge"
+                  "gauge",
+                  "area",
+                  "stacked_bar",
+                  "heatmap",
+                  "funnel"
                 ]
               },
               "query": {
@@ -148,6 +174,12 @@
               },
               "max": {
                 "type": "number"
+              },
+              "group": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
               }
             },
             "required": [

@@ -136,7 +136,7 @@ describe("dashcli CLI", () => {
       expect(html).toContain("PRELOADED_FILTERS");
       expect(html).not.toContain("cdn.jsdelivr.net");
       expect(html).toContain("echarts");
-      expect(html).toContain('filter-bar" style="display:none"');
+      expect(html).toContain('filter-wrap" style="display:none"');
     });
 
     it("exports to spec directory by default", () => {

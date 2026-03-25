@@ -124,6 +124,8 @@ function diffChartFields(a: ChartSpec, b: ChartSpec): string[] {
   if (a.format !== b.format) fields.push("format");
   if (a.min !== b.min) fields.push("min");
   if (a.max !== b.max) fields.push("max");
+  if (a.group !== b.group) fields.push("group");
+  if (a.value !== b.value) fields.push("value");
   if (JSON.stringify(a.position) !== JSON.stringify(b.position)) fields.push("position");
   return fields;
 }
