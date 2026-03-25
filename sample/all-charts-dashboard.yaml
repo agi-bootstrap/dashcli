@@ -15,7 +15,7 @@ filters:
   - id: revenue_range
     type: range
     column: revenue
-    default: [0, 100000]
+    default: [0, 250000]
   - id: category_search
     type: text
     column: product_category
