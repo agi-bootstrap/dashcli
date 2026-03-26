@@ -45,7 +45,7 @@ body {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
-.header h1 { font-size: 22px; font-weight: 600; line-height: 1.2; }
+.header h1 { font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
 .header .subtitle {
   font-size: 12px;
   color: var(--text-muted);
@@ -151,6 +151,7 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
   color: var(--text-secondary);
 }
 .data-table th.num, .data-table td.num { text-align: right; }
+.data-table tbody tr { transition: background-color 150ms ease; }
 .data-table tbody tr:hover { background: var(--hover); }
 .table-overflow { text-align: center; padding: calc(var(--sp) * 2); color: var(--text-muted); font-size: 12px; }
 
