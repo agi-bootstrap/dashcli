@@ -25,6 +25,8 @@ export function renderDashboardHtml(spec: DashboardSpec): string {
   --accent: #2563eb;
   --green: #16a34a;
   --red: #dc2626;
+  --border-light: #f0f0f0;
+  --hover: #f8f9fa;
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -142,11 +144,11 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
 }
 .data-table td {
   padding: calc(var(--sp) * 2);
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light);
   color: var(--text-secondary);
 }
 .data-table th.num, .data-table td.num { text-align: right; }
-.data-table tbody tr:hover { background: #f8f9fa; }
+.data-table tbody tr:hover { background: var(--hover); }
 
 /* Loading / Error states */
 .chart-loading {
@@ -212,7 +214,7 @@ echarts.registerTheme('dashcli', {
   valueAxis: {
     axisLabel: { fontSize: 11, color: '#737373' },
     axisLine: { show: false },
-    splitLine: { lineStyle: { color: '#f0f0f0' } }
+    splitLine: { lineStyle: { color: '#f0f0f0' } } /* matches --border-light */
   },
   bar: { itemStyle: { borderRadius: [4, 4, 0, 0] } },
   line: { lineStyle: { width: 2.5 }, smooth: true, symbol: 'circle', symbolSize: 6 },
