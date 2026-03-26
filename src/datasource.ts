@@ -1,6 +1,8 @@
 import type { Database } from "bun:sqlite";
 import { loadCsv } from "./csv";
 import { loadJson } from "./json";
+import { deriveTableName } from "./utils";
+export { deriveTableName } from "./utils";
 
 export interface DataSourceResult {
   db: Database;
@@ -12,13 +14,6 @@ export interface DataSourceResult {
  */
 export interface DataSource {
   load(filePath: string): DataSourceResult;
-}
-
-/** Derive a SQL-safe table name from a file path (strip known extension). */
-export function deriveTableName(filePath: string): string {
-  const filename = filePath.split("/").pop()!;
-  const ext = filename.match(/\.(csv|json)$/i)?.[0] ?? "";
-  return filename.slice(0, filename.length - ext.length).replace(/"/g, '""');
 }
 
 const ADAPTERS: Record<string, (filePath: string) => Database> = {

@@ -1,5 +1,6 @@
 import type { Database } from "bun:sqlite";
 import type { FilterSpec } from "./schema";
+import { escId } from "./utils";
 
 interface FilterValues {
   [filterId: string]: string | string[] | [string, string] | [number, number];
@@ -28,7 +29,7 @@ export function interpolateFilters(
 
     const value = filterValues[filter.id] ?? filter.default;
 
-    const col = filter.column.replace(/"/g, '""');
+    const col = escId(filter.column);
 
     if (filter.type === "date_range") {
       const [start, end] = Array.isArray(value) ? value : [value, value];

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { readFileSync } from "fs";
+import { escId, deriveTableName } from "./utils";
 
 export function loadJson(jsonPath: string): Database {
   const text = readFileSync(jsonPath, "utf-8");
@@ -19,8 +20,7 @@ export function loadJson(jsonPath: string): Database {
     throw new Error(`JSON objects have no keys: ${jsonPath}`);
   }
 
-  // Derive table name from filename (data.json → data)
-  const tableName = escId(jsonPath.split("/").pop()!.replace(/\.json$/i, ""));
+  const tableName = deriveTableName(jsonPath);
 
   const db = new Database(":memory:");
 
@@ -66,6 +66,4 @@ function coerce(val: unknown): string | number | null {
   return String(val);
 }
 
-function escId(s: string): string {
-  return s.replace(/"/g, '""');
-}
+// escId and deriveTableName are now imported from ./utils
