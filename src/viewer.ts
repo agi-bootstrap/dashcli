@@ -152,6 +152,7 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
 }
 .data-table th.num, .data-table td.num { text-align: right; }
 .data-table tbody tr:hover { background: var(--hover); }
+.table-overflow { text-align: center; padding: calc(var(--sp) * 2); color: var(--text-muted); font-size: 12px; }
 
 /* Loading / Error states */
 .chart-loading {
@@ -394,7 +395,7 @@ function renderTable(container, chart, data) {
     html += '</tr>';
   }
   html += '</tbody></table>';
-  if (data.length > 50) html += '<div style="text-align:center;padding:8px;color:#737373;font-size:12px;">Showing 50 of ' + data.length + ' rows</div>';
+  if (data.length > 50) html += '<div class="table-overflow">Showing 50 of ' + data.length + ' rows</div>';
   container.innerHTML = html;
 }
 
