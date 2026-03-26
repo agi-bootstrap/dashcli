@@ -162,6 +162,16 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
   color: var(--text-muted);
   font-size: 13px;
 }
+.dashcli-column-warning {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 12px;
+  padding: calc(var(--sp) * 1) calc(var(--sp) * 2);
+  z-index: 10;
+  border-radius: calc(var(--sp) * 1) calc(var(--sp) * 1) 0 0;
+}
 .chart-error {
   display: flex;
   align-items: center;
@@ -466,7 +476,6 @@ function renderEChartsOption(container, chartId, option, warnings) {
   if (warnings && warnings.length) {
     var banner = document.createElement('div');
     banner.className = 'dashcli-column-warning';
-    banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#fef3c7;color:#92400e;font-size:12px;padding:4px 8px;z-index:10;border-radius:4px 4px 0 0;';
     banner.textContent = 'Warning: ' + warnings.join('; ');
     container.style.position = 'relative';
     container.appendChild(banner);
