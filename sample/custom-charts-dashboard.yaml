@@ -1,0 +1,82 @@
+name: custom-charts-dashboard
+title: Custom Charts Demo
+source: ./sales.csv
+refresh: manual
+
+filters:
+  - id: date_range
+    type: date_range
+    column: date
+    default: ["2025-04-01", "2026-03-31"]
+
+layout:
+  columns: 3
+  rows: auto
+
+charts:
+  # KPI shortcut — not ECharts, stays as shortcut type
+  - id: total_revenue
+    type: kpi
+    query: "SELECT SUM(revenue) as value FROM sales WHERE {{date_range}}"
+    label: Total Revenue
+    format: currency
+    position: [0, 0, 1, 1]
+
+  # Custom bar chart using dataset + encode
+  - id: revenue_by_region
+    type: custom
+    query: "SELECT region, SUM(revenue) as total FROM sales WHERE {{date_range}} GROUP BY region ORDER BY total DESC"
+    label: Revenue by Region
+    position: [1, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: bar
+          encode: { x: region, y: total }
+
+  # Custom multi-series line chart
+  - id: revenue_trend
+    type: custom
+    query: "SELECT date, SUM(CASE WHEN region='North America' THEN revenue ELSE 0 END) as north_america, SUM(CASE WHEN region='Europe' THEN revenue ELSE 0 END) as europe, SUM(CASE WHEN region='Asia Pacific' THEN revenue ELSE 0 END) as asia_pacific FROM sales WHERE {{date_range}} GROUP BY date ORDER BY date"
+    label: Revenue Trend by Region
+    position: [0, 1, 3, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      legend: {}
+      series:
+        - type: line
+          name: North America
+          encode: { x: date, y: north_america }
+        - type: line
+          name: Europe
+          encode: { x: date, y: europe }
+        - type: line
+          name: Asia Pacific
+          encode: { x: date, y: asia_pacific }
+
+  # Custom pie chart
+  - id: category_split
+    type: custom
+    query: "SELECT product_category, SUM(revenue) as total FROM sales WHERE {{date_range}} GROUP BY product_category ORDER BY total DESC"
+    label: Revenue by Category
+    position: [0, 2, 1, 1]
+    option:
+      tooltip: { trigger: item }
+      series:
+        - type: pie
+          radius: ["40%", "70%"]
+          data: "$rows"
+          encode: { value: total, itemName: product_category }
+
+  # Table shortcut — not ECharts, stays as shortcut type
+  - id: detail_table
+    type: table
+    query: "SELECT date, region, product_category, revenue, deals FROM sales WHERE {{date_range}} ORDER BY date DESC, revenue DESC"
+    label: Transaction Detail
+    position: [1, 2, 2, 1]

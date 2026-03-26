@@ -26,6 +26,7 @@ layout:
   rows: auto
 
 charts:
+  # KPI shortcut
   - id: total_revenue
     type: kpi
     query: "SELECT SUM(revenue) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
@@ -33,90 +34,161 @@ charts:
     format: currency
     position: [0, 0, 1, 1]
 
+  # Custom gauge — avg deal size
   - id: avg_deal_size
-    type: gauge
+    type: custom
     query: "SELECT ROUND(CAST(SUM(revenue) AS REAL) / SUM(deals), 0) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
     label: Avg Deal Size
-    format: currency
-    min: 0
-    max: 50000
     position: [1, 0, 1, 1]
+    option:
+      series:
+        - type: gauge
+          min: 0
+          max: 50000
+          data: [{ value: "$row0.value" }]
+          pointer: { width: 4, length: "60%", itemStyle: { color: "#1a1a1a" } }
+          detail: { fontSize: 20, fontWeight: 700, color: "#1a1a1a", offsetCenter: [0, "70%"] }
+          title: { show: false }
 
+  # Custom gauge — win rate
   - id: win_rate
-    type: gauge
+    type: custom
     query: "SELECT ROUND(CAST(SUM(deals) AS REAL) / COUNT(*) * 10, 1) as value FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}}"
     label: Win Rate
-    format: percent
-    min: 0
-    max: 100
     position: [2, 0, 1, 1]
+    option:
+      series:
+        - type: gauge
+          min: 0
+          max: 100
+          data: [{ value: "$row0.value" }]
+          pointer: { width: 4, length: "60%", itemStyle: { color: "#1a1a1a" } }
+          detail: { fontSize: 20, fontWeight: 700, color: "#1a1a1a", offsetCenter: [0, "70%"] }
+          title: { show: false }
 
+  # Custom bar chart
   - id: by_region_bar
-    type: bar
+    type: custom
     query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region ORDER BY revenue DESC"
-    x: region
-    y: revenue
     label: Revenue by Region
     position: [0, 1, 1, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: bar
+          encode: { x: region, y: revenue }
 
+  # Custom pie chart
   - id: by_region_pie
-    type: pie
+    type: custom
     query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region ORDER BY revenue DESC"
-    x: region
-    y: revenue
     label: Revenue Split
     position: [1, 1, 1, 1]
+    option:
+      tooltip: { trigger: item }
+      series:
+        - type: pie
+          radius: ["40%", "70%"]
+          data: "$rows"
+          encode: { value: revenue, itemName: region }
 
+  # Custom line chart
   - id: trend
-    type: line
+    type: custom
     query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY date ORDER BY date"
-    x: month
-    y: revenue
     label: Revenue Trend
     position: [2, 1, 1, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: line
+          encode: { x: month, y: revenue }
 
+  # Custom scatter chart
   - id: deals_vs_revenue
-    type: scatter
+    type: custom
     query: "SELECT SUM(deals) as deals, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category"
-    x: deals
-    y: revenue
     label: Deals vs Revenue
     position: [0, 2, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: value }
+      yAxis: { type: value }
+      tooltip: { trigger: item }
+      series:
+        - type: scatter
+          encode: { x: deals, y: revenue }
 
+  # Custom area chart
   - id: revenue_area
-    type: area
+    type: custom
     query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY date ORDER BY date"
-    x: month
-    y: revenue
     label: Revenue Trend (Area)
     position: [0, 3, 1, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: line
+          encode: { x: month, y: revenue }
+          areaStyle: { opacity: 0.15 }
 
+  # Custom stacked bar chart
   - id: revenue_stacked
-    type: stacked_bar
+    type: custom
     query: "SELECT region, product_category, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category ORDER BY region"
-    x: region
-    y: revenue
-    group: product_category
     label: Revenue by Region (Stacked)
     position: [1, 3, 1, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      legend: {}
+      series:
+        - type: bar
+          stack: total
+          encode: { x: region, y: revenue, seriesName: product_category }
 
+  # Custom funnel chart
   - id: deal_funnel
-    type: funnel
+    type: custom
     query: "SELECT product_category as stage, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY product_category ORDER BY deals DESC"
-    x: stage
-    y: deals
     label: Deals by Category
     position: [2, 3, 1, 1]
+    option:
+      tooltip: { trigger: item }
+      series:
+        - type: funnel
+          left: "10%"
+          width: "80%"
+          data: "$rows"
+          encode: { value: deals, itemName: stage }
 
+  # Custom heatmap chart
   - id: revenue_heatmap
-    type: heatmap
+    type: custom
     query: "SELECT region, product_category, SUM(revenue) as total_revenue FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category"
-    x: region
-    y: product_category
-    value: total_revenue
     label: Revenue Heatmap
     position: [0, 4, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category, data: "$distinct.region" }
+      yAxis: { type: category, data: "$distinct.product_category" }
+      visualMap: { min: 0, max: 250000, inRange: { color: ["#f0f4ff", "#2563eb"] }, show: false }
+      series:
+        - type: heatmap
+          encode: { x: region, y: product_category, value: total_revenue }
 
+  # Table shortcut
   - id: detail_table
     type: table
     query: "SELECT region, product_category, SUM(revenue) as revenue, SUM(deals) as deals FROM sales WHERE {{date_range}} AND {{region}} AND {{revenue_range}} AND {{category_search}} GROUP BY region, product_category ORDER BY revenue DESC"

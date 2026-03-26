@@ -131,30 +131,29 @@ All interactive elements (inputs, selects, buttons) must have a minimum height o
 
 ## Charts (ECharts)
 
+All ECharts visualizations use `type: custom` with a raw `option` object. A registered `dashcli` ECharts theme provides consistent defaults so individual charts only override when needed.
+
+### Theme defaults (`dashcli` theme)
+
 | Property | Value |
 |----------|-------|
-| Bar color | `--accent` (#2563eb) |
-| Line color | `--accent` (#2563eb) |
-| Pie style | Donut (40%/70% radius), accent with opacity variation per slice |
-| Scatter style | 8px symbols, `--accent`, value axes on both X/Y |
-| Gauge style | Single-value arc, 12px width, `--accent` fill, pointer in `--text` |
-| Line width | 2.5px |
-| Line style | Smooth, circle symbols (6px) |
-| Bar radius | `[4, 4, 0, 0]` (top corners) |
+| Color palette | `#2563eb` + opacity variants (`0.7`, `0.5`, `0.35`, `0.2`), `#60a5fa`, `#93c5fd` |
 | Grid padding | `{left: 16, right: 16, top: 16, bottom: 32, containLabel: true}` |
-| Axis labels | 11px, #737373 (matches `--text-muted`) |
-| Grid lines | #f0f0f0 |
-| Tooltip | axis trigger (bar), item trigger (line/scatter) |
+| Category axis | 11px labels in #737373, `--border` (#e2e2e2) axis line, no ticks |
+| Value axis | 11px labels in #737373, no axis line, #f0f0f0 split lines |
+| Bar | `borderRadius: [4, 4, 0, 0]` (top corners) |
+| Line | Width 2.5px, smooth, circle symbols (6px) |
+| Pie | Donut, white border (2px), 11px labels in #737373 |
+| Scatter | 8px symbols |
+| Gauge | 12px arc width, `--accent` fill, pointer in `--text`, 11px labels |
+| Heatmap | White cell borders (2px, 2px radius) |
+| Funnel | White borders (2px), 11px labels |
+| Legend | 11px text in #737373 |
 | Min container height | 180px |
 
-### Additional Chart Types
+### Column-not-found warnings
 
-| Type | Description |
-|------|-------------|
-| Area | Line chart with 15% opacity fill (`rgba(37, 99, 235, 0.15)`). Same smooth curves, 2.5px line width, and circle symbols as line chart. Uses ECharts `areaStyle`. |
-| Stacked bar | Multi-series stacked bar chart. Each series uses accent color with opacity gradient from 1.0 (first group) to 0.3 (last group). Top stack gets rounded corners `[4, 4, 0, 0]`. Legend shown at bottom when ≤8 groups. Requires `group` field in spec. |
-| Heatmap | Two-axis category grid with intensity coloring. Gradient from `#f0f4ff` (min) to `#2563eb` (max). White cell borders (2px). Hidden visualMap. Requires `value` field in spec. |
-| Funnel | Conversion funnel. Opacity gradient 0.3–1.0 on accent color, same pattern as pie chart. Centered at 80% width, white borders (2px). Requires x (label) and y (value). |
+When a data binding token references a column not in the query result, an amber banner (`#fef3c7` background, `#92400e` text) appears at the top of the chart card and a `console.warn` fires.
 
 ## Filters
 

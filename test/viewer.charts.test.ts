@@ -16,92 +16,6 @@ function specWith(charts: DashboardSpec["charts"]): DashboardSpec {
   return { ...baseSpec, charts };
 }
 
-describe("pie chart rendering", () => {
-  const html = renderDashboardHtml(
-    specWith([
-      { id: "pie1", type: "pie", query: "SELECT 1", label: "Revenue Split", x: "region", y: "revenue", position: [0, 0, 1, 1] },
-    ])
-  );
-
-  it("includes renderPieChart function", () => {
-    expect(html).toContain("function renderPieChart(");
-  });
-
-  it("renders pie series with donut radius", () => {
-    expect(html).toContain("radius: ['40%', '70%']");
-  });
-
-  it("uses accent color for pie slices", () => {
-    expect(html).toContain("rgba(37, 99, 235,");
-  });
-
-  it("renders card with correct label", () => {
-    expect(html).toContain("Revenue Split");
-  });
-
-  it("dispatches pie type to renderPieChart", () => {
-    expect(html).toContain("chart.type === 'pie'");
-  });
-});
-
-describe("scatter chart rendering", () => {
-  const html = renderDashboardHtml(
-    specWith([
-      { id: "scatter1", type: "scatter", query: "SELECT 1", label: "Deals vs Revenue", x: "deals", y: "revenue", position: [0, 0, 2, 1] },
-    ])
-  );
-
-  it("includes renderScatterChart function", () => {
-    expect(html).toContain("function renderScatterChart(");
-  });
-
-  it("renders scatter series type", () => {
-    expect(html).toContain("type: 'scatter'");
-  });
-
-  it("uses accent color for scatter points", () => {
-    expect(html).toContain("itemStyle: { color: '#2563eb' }");
-  });
-
-  it("uses value axes (not category)", () => {
-    expect(html).toContain("xAxis: {");
-    expect(html).toContain("type: 'value'");
-  });
-
-  it("dispatches scatter type to renderScatterChart", () => {
-    expect(html).toContain("chart.type === 'scatter'");
-  });
-});
-
-describe("gauge chart rendering", () => {
-  const html = renderDashboardHtml(
-    specWith([
-      { id: "gauge1", type: "gauge", query: "SELECT 1", label: "Win Rate", format: "percent", min: 0, max: 100, position: [0, 0, 1, 1] },
-    ])
-  );
-
-  it("includes renderGaugeChart function", () => {
-    expect(html).toContain("function renderGaugeChart(");
-  });
-
-  it("renders gauge series type", () => {
-    expect(html).toContain("type: 'gauge'");
-  });
-
-  it("uses accent color for gauge axis line", () => {
-    expect(html).toContain("color: [[1, '#2563eb']]");
-  });
-
-  it("dispatches gauge type to renderGaugeChart", () => {
-    expect(html).toContain("chart.type === 'gauge'");
-  });
-
-  it("references min and max from chart spec", () => {
-    expect(html).toContain("chart.min");
-    expect(html).toContain("chart.max");
-  });
-});
-
 describe("table numeric column alignment", () => {
   const html = renderDashboardHtml(
     specWith([
@@ -130,8 +44,6 @@ describe("table numeric column alignment", () => {
     expect(html).toContain("letter-spacing: 0.5px");
   });
 
-  // Regression: null values in numeric columns silently became "0"
-  // Found by adversarial review on 2026-03-23
   it("guards null values in numeric columns (renders empty, not '0')", () => {
     expect(html).toContain("v == null ? '' : Number(v)");
   });
@@ -147,74 +59,6 @@ describe("KPI mobile responsiveness", () => {
   it("overrides min-height for KPI containers on mobile", () => {
     expect(html).toContain(".card:has(.kpi-value)");
     expect(html).toContain("min-height: auto");
-  });
-});
-
-describe("new chart types", () => {
-  const specWith = (charts: DashboardSpec["charts"]): DashboardSpec => ({
-    name: "test",
-    title: "Test",
-    source: "./data.csv",
-    refresh: "manual",
-    layout: { columns: 3, rows: "auto" },
-    filters: [],
-    charts,
-  });
-
-  describe("area chart", () => {
-    const html = renderDashboardHtml(specWith([
-      { id: "a1", type: "area", query: "SELECT 1", label: "Area", x: "month", y: "revenue", position: [0, 0, 1, 1] }
-    ]));
-
-    it("routes area type through renderEChart", () => {
-      expect(html).toContain("chart.type === 'area'");
-    });
-
-    it("includes areaStyle for area charts", () => {
-      expect(html).toContain("areaStyle: chart.type === 'area'");
-    });
-  });
-
-  describe("stacked_bar chart", () => {
-    const html = renderDashboardHtml(specWith([
-      { id: "s1", type: "stacked_bar", query: "SELECT 1", label: "Stacked", x: "region", y: "revenue", group: "category", position: [0, 0, 1, 1] }
-    ]));
-
-    it("includes renderStackedBarChart function", () => {
-      expect(html).toContain("function renderStackedBarChart(");
-    });
-
-    it("uses stack total for stacking", () => {
-      expect(html).toContain("stack: 'total'");
-    });
-  });
-
-  describe("heatmap chart", () => {
-    const html = renderDashboardHtml(specWith([
-      { id: "h1", type: "heatmap", query: "SELECT 1", label: "Heatmap", x: "region", y: "category", value: "total", position: [0, 0, 1, 1] }
-    ]));
-
-    it("includes renderHeatmapChart function", () => {
-      expect(html).toContain("function renderHeatmapChart(");
-    });
-
-    it("includes visualMap configuration", () => {
-      expect(html).toContain("visualMap");
-    });
-  });
-
-  describe("funnel chart", () => {
-    const html = renderDashboardHtml(specWith([
-      { id: "f1", type: "funnel", query: "SELECT 1", label: "Funnel", x: "stage", y: "count", position: [0, 0, 1, 1] }
-    ]));
-
-    it("includes renderFunnelChart function", () => {
-      expect(html).toContain("function renderFunnelChart(");
-    });
-
-    it("sets funnel type", () => {
-      expect(html).toContain("type: 'funnel'");
-    });
   });
 });
 
@@ -263,26 +107,202 @@ describe("new filter types", () => {
   });
 });
 
-describe("all chart types in single dashboard", () => {
+describe("ECharts dashcli theme", () => {
   const html = renderDashboardHtml(
     specWith([
-      { id: "kpi1", type: "kpi", query: "SELECT 1", label: "KPI", format: "number", position: [0, 0, 1, 1] },
-      { id: "bar1", type: "bar", query: "SELECT 1", label: "Bar", x: "x", y: "y", position: [1, 0, 1, 1] },
-      { id: "line1", type: "line", query: "SELECT 1", label: "Line", x: "x", y: "y", position: [2, 0, 1, 1] },
-      { id: "pie1", type: "pie", query: "SELECT 1", label: "Pie", x: "x", y: "y", position: [0, 1, 1, 1] },
-      { id: "scatter1", type: "scatter", query: "SELECT 1", label: "Scatter", x: "x", y: "y", position: [1, 1, 1, 1] },
-      { id: "gauge1", type: "gauge", query: "SELECT 1", label: "Gauge", format: "percent", position: [2, 1, 1, 1] },
-      { id: "table1", type: "table", query: "SELECT 1", label: "Table", position: [0, 2, 3, 1] },
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Chart", position: [0, 0, 1, 1],
+        option: { xAxis: { type: "category" }, yAxis: {}, series: [{ type: "bar", data: [1] }] },
+      },
     ])
   );
 
-  it("renders a card for every chart type", () => {
+  it("registers the dashcli theme", () => {
+    expect(html).toContain("echarts.registerTheme('dashcli'");
+  });
+
+  it("uses themed init for all chart instances", () => {
+    expect(html).toContain("echarts.init(container, 'dashcli')");
+    expect(html).not.toContain("echarts.init(container)");
+  });
+
+  it("theme includes design system colors", () => {
+    expect(html).toContain("color: ['#2563eb'");
+  });
+
+  it("theme includes grid defaults", () => {
+    expect(html).toContain("grid: { left: 16, right: 16, top: 16, bottom: 32");
+  });
+});
+
+describe("custom chart rendering", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      {
+        id: "custom1", type: "custom", query: "SELECT region, total FROM sales",
+        label: "Custom Bar", position: [0, 0, 2, 1],
+        option: {
+          dataset: { source: "$rows" },
+          xAxis: { type: "category" },
+          yAxis: {},
+          series: [{ type: "bar", encode: { x: "region", y: "total" } }],
+        },
+      },
+    ])
+  );
+
+  it("includes resolveDataBindings function", () => {
+    expect(html).toContain("function resolveDataBindings(");
+  });
+
+  it("includes renderEChartsOption function", () => {
+    expect(html).toContain("function renderEChartsOption(");
+  });
+
+  it("dispatches custom type in renderChart", () => {
+    expect(html).toContain("chart.type === 'custom'");
+  });
+
+  it("resolveDataBindings handles $rows token", () => {
+    expect(html).toContain("=== '$rows'");
+  });
+
+  it("resolveDataBindings handles $rows.column token", () => {
+    expect(html).toContain("'$rows.'");
+  });
+
+  it("resolveDataBindings handles $row0.column token", () => {
+    expect(html).toContain("'$row0.'");
+  });
+
+  it("resolveDataBindings handles $distinct.column token", () => {
+    expect(html).toContain("'$distinct.'");
+  });
+
+  it("renders card with correct label", () => {
+    expect(html).toContain("Custom Bar");
+    expect(html).toContain('id="chart-custom1"');
+  });
+
+  it("serializes option into SPEC JSON", () => {
+    expect(html).toContain('"dataset"');
+    expect(html).toContain('"$rows"');
+  });
+});
+
+describe("resolveDataBindings column-not-found", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Chart", position: [0, 0, 1, 1],
+        option: { series: [{ type: "bar", data: "$rows.nonexistent" }] },
+      },
+    ])
+  );
+
+  it("contains column-not-found warning logic", () => {
+    expect(html).toContain("not found in data");
+  });
+
+  it("passes warnings array to resolveDataBindings", () => {
+    expect(html).toContain("var warnings = []");
+    expect(html).toContain("resolveDataBindings(chart.option, data, warnings)");
+  });
+
+  it("logs warnings to console", () => {
+    expect(html).toContain("console.warn");
+    expect(html).toContain("column warnings");
+  });
+});
+
+describe("empty data guard for custom", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Chart", position: [0, 0, 1, 1],
+        option: { series: [{ type: "bar", data: [1] }] },
+      },
+    ])
+  );
+
+  it("checks data.length before renderEChartsOption", () => {
+    expect(html).toContain("!data.length");
+  });
+
+  it("shows 'No data' message for empty results", () => {
+    expect(html).toContain("No data");
+  });
+});
+
+describe("renderEChartsOption function", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Chart", position: [0, 0, 1, 1],
+        option: { series: [{ type: "bar", data: [1] }] },
+      },
+    ])
+  );
+
+  it("defines renderEChartsOption as the single ECharts init path", () => {
+    expect(html).toContain("function renderEChartsOption(");
+  });
+
+  it("does not contain legacy per-type render functions", () => {
+    expect(html).not.toContain("function renderPieChart(");
+    expect(html).not.toContain("function renderScatterChart(");
+    expect(html).not.toContain("function renderGaugeChart(");
+    expect(html).not.toContain("function renderStackedBarChart(");
+    expect(html).not.toContain("function renderHeatmapChart(");
+    expect(html).not.toContain("function renderFunnelChart(");
+    expect(html).not.toContain("function renderEChart(");
+    expect(html).not.toContain("function renderCustomChart(");
+  });
+
+  it("no bare echarts.init(container) calls — only themed init", () => {
+    expect(html).not.toContain("echarts.init(container)");
+    expect(html).toContain("echarts.init(container, 'dashcli')");
+  });
+});
+
+describe("chartObservers map for ResizeObserver cleanup", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Chart", position: [0, 0, 1, 1],
+        option: { series: [{ type: "bar", data: [1] }] },
+      },
+    ])
+  );
+
+  it("defines chartObservers map", () => {
+    expect(html).toContain("chartObservers");
+  });
+
+  it("stores observer in chartObservers on init", () => {
+    expect(html).toContain("chartObservers[chartId] = ro");
+  });
+
+  it("disconnects observer on dispose", () => {
+    expect(html).toContain("chartObservers[chart.id].disconnect()");
+  });
+});
+
+describe("custom and shortcut types coexist", () => {
+  const html = renderDashboardHtml(
+    specWith([
+      { id: "kpi1", type: "kpi", query: "SELECT 1", label: "KPI", format: "number", position: [0, 0, 1, 1] },
+      {
+        id: "custom1", type: "custom", query: "SELECT 1", label: "Custom", position: [1, 0, 2, 1],
+        option: { series: [{ type: "line", data: "$rows.value" }] },
+      },
+      { id: "table1", type: "table", query: "SELECT 1", label: "Table", position: [0, 1, 3, 1] },
+    ])
+  );
+
+  it("renders cards for all types", () => {
     expect(html).toContain('id="chart-kpi1"');
-    expect(html).toContain('id="chart-bar1"');
-    expect(html).toContain('id="chart-line1"');
-    expect(html).toContain('id="chart-pie1"');
-    expect(html).toContain('id="chart-scatter1"');
-    expect(html).toContain('id="chart-gauge1"');
+    expect(html).toContain('id="chart-custom1"');
     expect(html).toContain('id="chart-table1"');
   });
 
