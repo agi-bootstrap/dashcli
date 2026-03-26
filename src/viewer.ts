@@ -99,7 +99,10 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
   max-width: 1440px;
   margin: 0 auto;
 }
-.header, .filter-bar { max-width: 1440px; margin-left: auto; margin-right: auto; }
+.header, .filter-bar {
+  padding-left: max(calc(var(--sp) * 6), calc((100% - 1392px) / 2));
+  padding-right: max(calc(var(--sp) * 6), calc((100% - 1392px) / 2));
+}
 
 /* Cards */
 .card {
