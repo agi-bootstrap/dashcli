@@ -82,29 +82,37 @@ charts:
     position: [0, 0, 1, 1]
 
   - id: by-region
-    type: bar
+    type: custom
     query: "SELECT region, SUM(revenue) as total FROM sales WHERE {{period}} AND {{region}} GROUP BY region"
-    x: region
-    y: total
     label: Revenue by Region
     position: [1, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      series:
+        - type: bar
+          encode: { x: region, y: total }
 ```
 
 ### Chart types
 
 | Type | Required fields | Notes |
 |------|----------------|-------|
+| `custom` | `option` (raw ECharts option object) | Full ECharts 5.6 API — bar, line, pie, scatter, gauge, heatmap, funnel, etc. |
 | `kpi` | `query` (returns single value) | Supports `format`: currency, number, percent |
-| `bar` | `x`, `y` | |
-| `line` | `x`, `y` | Smooth curves |
-| `area` | `x`, `y` | Filled line chart |
-| `pie` | `x`, `y` | `x` = label, `y` = value |
-| `scatter` | `x`, `y` | |
-| `gauge` | `query` (returns single value) | Optional `min`, `max` |
-| `stacked_bar` | `x`, `y`, `group` | Multi-series stacked bars |
-| `heatmap` | `x`, `y`, `value` | Two-axis intensity grid |
-| `funnel` | `x`, `y` | Conversion funnel |
 | `table` | `query` (returns rows) | |
+
+`custom` charts use ECharts' `dataset`/`encode` pattern with data binding tokens:
+
+| Token | Resolves to | Example use |
+|-------|------------|-------------|
+| `"$rows"` | Full query result array | `dataset: { source: "$rows" }` |
+| `"$rows.column"` | Array of values for one column | `xAxis: { data: "$rows.region" }` |
+| `"$row0.column"` | Scalar from first row | `data: [{ value: "$row0.value" }]` |
+| `"$distinct.column"` | Unique values for a column | `xAxis: { data: "$distinct.region" }` |
+
+A registered `dashcli` ECharts theme provides default colors, grid, axis styling, and per-series-type defaults (bar border-radius, line smoothing, pie donut, etc.) so most charts need only `dataset`, axis types, and `series` with `encode`.
 
 ### Positions
 

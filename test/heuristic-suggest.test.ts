@@ -66,12 +66,11 @@ describe("generateSpec", () => {
       writeFixture("bar.csv", "region,revenue\nNorth,100\nSouth,200\n"),
     );
     const spec = generateSpec(profile, "bar.csv");
-    const bar = spec.charts.find((c) => c.type === "bar");
+    const bar = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("bar"));
     expect(bar).toBeDefined();
-    expect(bar!.x).toBe("region");
-    expect(bar!.y).toBe("revenue");
     expect(bar!.label).toContain("Revenue");
     expect(bar!.label).toContain("Region");
+    expect((bar as any).option?.series?.[0]?.type).toBe("bar");
   });
 
   it("generates line chart with date × measure", () => {
@@ -79,11 +78,10 @@ describe("generateSpec", () => {
       writeFixture("line.csv", "date,revenue\n2025-01-01,100\n2025-02-01,200\n"),
     );
     const spec = generateSpec(profile, "line.csv");
-    const line = spec.charts.find((c) => c.type === "line");
+    const line = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("line"));
     expect(line).toBeDefined();
-    expect(line!.x).toBe("date");
-    expect(line!.y).toBe("revenue");
     expect(line!.label).toContain("Trend");
+    expect((line as any).option?.series?.[0]?.type).toBe("line");
   });
 
   it("generates detail table spanning full width", () => {
@@ -101,8 +99,8 @@ describe("generateSpec", () => {
       writeFixture("no-dims.csv", "date,revenue\n2025-01-01,100\n2025-02-01,200\n"),
     );
     const spec = generateSpec(profile, "no-dims.csv");
-    const bar = spec.charts.find((c) => c.type === "bar");
-    const line = spec.charts.find((c) => c.type === "line");
+    const bar = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("bar"));
+    const line = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("line"));
     expect(bar).toBeUndefined();
     expect(line).toBeDefined();
     expect(line!.position[2]).toBe(spec.layout.columns); // full width
@@ -113,8 +111,8 @@ describe("generateSpec", () => {
       writeFixture("no-dates.csv", "region,revenue\nNorth,100\nSouth,200\n"),
     );
     const spec = generateSpec(profile, "no-dates.csv");
-    const bar = spec.charts.find((c) => c.type === "bar");
-    const line = spec.charts.find((c) => c.type === "line");
+    const bar = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("bar"));
+    const line = spec.charts.find((c) => c.type === "custom" && c.id?.toString().startsWith("line"));
     expect(bar).toBeDefined();
     expect(bar!.position[2]).toBe(spec.layout.columns); // full width
     expect(line).toBeUndefined();

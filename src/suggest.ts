@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { resolve, basename } from "path";
-import { DashboardSpec, type ChartSpec, type FilterSpec } from "./schema";
+import { DashboardSpec, type FilterSpec } from "./schema";
 import { loadDataSource } from "./datasource";
 import { profileDataSource, type ProfileResult } from "./profiler";
 import type { Database } from "bun:sqlite";
@@ -77,7 +77,7 @@ export function generateSpec(
       ? filterIds.map((id) => `{{${id}}}`).join(" AND ")
       : "1=1";
 
-  const charts: ChartSpec[] = [];
+  const charts: Array<Record<string, unknown>> = [];
   let currentRow = 0;
 
   // Table-only mode: just a raw SELECT
@@ -88,7 +88,7 @@ export function generateSpec(
       id: "detail_table",
       type: "table",
       query: `SELECT ${selectCols} FROM "${safeTable}" WHERE ${whereClause} LIMIT 100`,
-      position: [0, 0, gridCols, 1] as [number, number, number, number],
+      position: [0, 0, gridCols, 1],
       label: `${title} Detail`,
     });
 
@@ -112,7 +112,7 @@ export function generateSpec(
       id: `kpi_${m.name.replace(/[^a-zA-Z0-9_]/g, "_")}`,
       type: "kpi",
       query: `SELECT SUM("${safeCol}") as value FROM "${safeTable}" WHERE ${whereClause}`,
-      position: [i, currentRow, 1, 1] as [number, number, number, number],
+      position: [i, currentRow, 1, 1],
       label: `Total ${humanizeLabel(m.name)}`,
       format: kpiFormat(m.name),
     });
@@ -120,53 +120,69 @@ export function generateSpec(
   currentRow++;
 
   // Row 1: Bar + Line charts — only if we have at least one measure
+  // Uses type: "custom" with ECharts option objects
   const firstMeasure = measures[0];
   const hasBar = sortedDims.length > 0 && firstMeasure != null;
   const hasLine = dates.length > 0 && firstMeasure != null;
 
   if (hasBar && hasLine) {
-    // Both: bar takes 2 cols, line takes 1
     const dim = sortedDims[0];
     const date = dates[0];
     charts.push({
       id: `bar_${dim.name.replace(/[^a-zA-Z0-9_]/g, "_")}`,
-      type: "bar",
+      type: "custom",
       query: `SELECT "${escId(dim.name)}", SUM("${escId(firstMeasure.name)}") as "${escId(firstMeasure.name)}" FROM "${safeTable}" WHERE ${whereClause} GROUP BY "${escId(dim.name)}" ORDER BY "${escId(firstMeasure.name)}" DESC`,
-      position: [0, currentRow, 2, 1] as [number, number, number, number],
-      x: dim.name,
-      y: firstMeasure.name,
+      position: [0, currentRow, 2, 1],
       label: `${humanizeLabel(firstMeasure.name)} by ${humanizeLabel(dim.name)}`,
+      option: {
+        dataset: { source: "$rows" },
+        xAxis: { type: "category" },
+        yAxis: {},
+        series: [{ type: "bar", encode: { x: dim.name, y: firstMeasure.name } }],
+      },
     });
     charts.push({
       id: `line_${date.name.replace(/[^a-zA-Z0-9_]/g, "_")}`,
-      type: "line",
+      type: "custom",
       query: `SELECT "${escId(date.name)}", SUM("${escId(firstMeasure.name)}") as "${escId(firstMeasure.name)}" FROM "${safeTable}" WHERE ${whereClause} GROUP BY "${escId(date.name)}" ORDER BY "${escId(date.name)}"`,
-      position: [2, currentRow, gridCols - 2, 1] as [number, number, number, number],
-      x: date.name,
-      y: firstMeasure.name,
+      position: [2, currentRow, gridCols - 2, 1],
       label: `${humanizeLabel(firstMeasure.name)} Trend`,
+      option: {
+        dataset: { source: "$rows" },
+        xAxis: { type: "category" },
+        yAxis: {},
+        series: [{ type: "line", encode: { x: date.name, y: firstMeasure.name } }],
+      },
     });
   } else if (hasBar) {
     const dim = sortedDims[0];
     charts.push({
       id: `bar_${dim.name.replace(/[^a-zA-Z0-9_]/g, "_")}`,
-      type: "bar",
+      type: "custom",
       query: `SELECT "${escId(dim.name)}", SUM("${escId(firstMeasure.name)}") as "${escId(firstMeasure.name)}" FROM "${safeTable}" WHERE ${whereClause} GROUP BY "${escId(dim.name)}" ORDER BY "${escId(firstMeasure.name)}" DESC`,
-      position: [0, currentRow, gridCols, 1] as [number, number, number, number],
-      x: dim.name,
-      y: firstMeasure.name,
+      position: [0, currentRow, gridCols, 1],
       label: `${humanizeLabel(firstMeasure.name)} by ${humanizeLabel(dim.name)}`,
+      option: {
+        dataset: { source: "$rows" },
+        xAxis: { type: "category" },
+        yAxis: {},
+        series: [{ type: "bar", encode: { x: dim.name, y: firstMeasure.name } }],
+      },
     });
   } else if (hasLine) {
     const date = dates[0];
     charts.push({
       id: `line_${date.name.replace(/[^a-zA-Z0-9_]/g, "_")}`,
-      type: "line",
+      type: "custom",
       query: `SELECT "${escId(date.name)}", SUM("${escId(firstMeasure.name)}") as "${escId(firstMeasure.name)}" FROM "${safeTable}" WHERE ${whereClause} GROUP BY "${escId(date.name)}" ORDER BY "${escId(date.name)}"`,
-      position: [0, currentRow, gridCols, 1] as [number, number, number, number],
-      x: date.name,
-      y: firstMeasure.name,
+      position: [0, currentRow, gridCols, 1],
       label: `${humanizeLabel(firstMeasure.name)} Trend`,
+      option: {
+        dataset: { source: "$rows" },
+        xAxis: { type: "category" },
+        yAxis: {},
+        series: [{ type: "line", encode: { x: date.name, y: firstMeasure.name } }],
+      },
     });
   }
 
@@ -283,7 +299,82 @@ export function buildSchemaSummary(db: Database, tableName: string): string {
 
 const SYSTEM_PROMPT = `You are a dashboard design assistant. Given a data source schema, generate 3-5 dashboard YAML specs that would be useful for analyzing this data.
 
-Each spec must follow this exact YAML format:
+## Chart types
+
+For all visualizations, use \`type: custom\` with a raw ECharts \`option\` object. This gives you full control over the chart via the ECharts 5.6.0 API.
+
+For KPI cards (single headline number), use \`type: kpi\`.
+For data tables, use \`type: table\`.
+
+### Data binding tokens
+
+Custom chart options use string tokens that get replaced with query results at runtime:
+
+- \`"$rows"\` — full data array (use with \`dataset.source\`)
+- \`"$rows.column_name"\` — array of values for that column (use with \`xAxis.data\` or \`series[].data\`)
+- \`"$row0.column_name"\` — scalar from first row (use for gauge value, visualMap bounds)
+- \`"$distinct.column_name"\` — unique values for that column (use for category axis data)
+
+### dashcli theme (applied automatically)
+
+All charts inherit the dashcli theme. Do NOT set these properties — they are provided by the theme:
+- Color palette: #2563eb with opacity variants
+- Grid: left/right 16px, top 16px, bottom 32px, containLabel
+- Category axis: 11px labels in #737373, #e2e2e2 axis line, no ticks
+- Value axis: 11px labels in #737373, no axis line, #f0f0f0 split lines
+- Bar: borderRadius [4,4,0,0]
+- Line: width 2.5, smooth, circle symbols size 6
+- Pie: white border width 2, 11px labels
+- Scatter: symbolSize 8
+- Legend: 11px text in #737373
+
+Only set style properties when you want to OVERRIDE the theme.
+
+### Recommended pattern: dataset + encode
+
+Use ECharts' dataset/encode for clean data binding:
+
+\`\`\`yaml
+- id: revenue_by_region
+  type: custom
+  query: "SELECT region, SUM(revenue) as total FROM sales GROUP BY region"
+  label: Revenue by Region
+  position: [0, 0, 2, 1]
+  option:
+    dataset: { source: "$rows" }
+    xAxis: { type: category }
+    yAxis: {}
+    series:
+      - type: bar
+        encode: { x: region, y: total }
+\`\`\`
+
+For multi-series / stacked charts, use multiple series with encode:
+
+\`\`\`yaml
+- id: stacked_sales
+  type: custom
+  query: "SELECT region, SUM(CASE WHEN cat='A' THEN rev ELSE 0 END) as cat_a, SUM(CASE WHEN cat='B' THEN rev ELSE 0 END) as cat_b FROM sales GROUP BY region"
+  label: Sales by Category
+  position: [0, 1, 2, 1]
+  option:
+    tooltip: { trigger: axis }
+    dataset: { source: "$rows" }
+    xAxis: { type: category }
+    yAxis: {}
+    legend: {}
+    series:
+      - type: bar
+        stack: total
+        name: Category A
+        encode: { x: region, y: cat_a }
+      - type: bar
+        stack: total
+        name: Category B
+        encode: { x: region, y: cat_b }
+\`\`\`
+
+## Full YAML format
 
 \`\`\`yaml
 name: <unique-dashboard-name>
@@ -303,30 +394,23 @@ layout:
 
 charts:
   - id: <chart_id>
-    type: bar | line | kpi | table | pie | scatter | gauge | area | stacked_bar | heatmap | funnel
+    type: custom | kpi | table
     query: "SELECT ... FROM <TABLE> WHERE {{filter_id}} ..."
     position: [col_start, row_start, col_span, row_span]
-    x: <column>
-    y: <column>
-    group: <column>
-    value: <column>
     label: <title>
-    format: currency | number | percent
-    min: 0
-    max: 100
+    option: {}          # required for custom — raw ECharts option object
+    format: currency | number | percent  # optional, for kpi
 \`\`\`
 
-Rules:
-1. Use the exact table name provided in the schema summary. All SQL queries must reference this table.
+## Rules
+1. Use the exact table name provided in the schema summary.
 2. Use \`source: <SOURCE_PLACEHOLDER>\` — it will be replaced with the actual file path.
-3. Positions are 0-indexed [col_start, row_start, col_span, row_span]. Grid is 3 columns by default.
-4. Charts of type bar, line, pie, scatter, area, stacked_bar, heatmap, funnel MUST have both x and y fields. stacked_bar also requires a group field. heatmap also requires a value field.
-5. KPI charts should query a single "value" column (e.g., SELECT SUM(col) as value).
-6. Gauge charts need min and max fields.
-7. Filter placeholders use {{filter_id}} syntax in SQL queries. Only include filters you define.
-8. Make each dashboard focus on a different analytical angle (overview, trends, breakdown, comparison, etc.).
-9. Use realistic SQL queries that work with the columns in the schema.
-10. Output ONLY the YAML specs, each in a separate \`\`\`yaml code block. No other text.`;
+3. Positions are 0-indexed [col_start, row_start, col_span, row_span]. Grid is 3 columns. Avoid overlaps.
+4. KPI charts should query a single "value" column (e.g., SELECT SUM(col) as value).
+5. Filter placeholders use {{filter_id}} syntax in SQL queries. Only include filters you define.
+6. Make each dashboard focus on a different analytical angle (overview, trends, breakdown, comparison, etc.).
+7. Use realistic SQL queries that work with the columns in the schema.
+8. Output ONLY the YAML specs, each in a separate \`\`\`yaml code block. No other text.`;
 
 /**
  * Parse YAML blocks from Claude's response text.
@@ -381,7 +465,7 @@ export async function suggestAI(
 
   const response = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
     messages: [
       {

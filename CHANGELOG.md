@@ -2,6 +2,35 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.4.0] - 2026-03-26
+
+### Changed
+- Chart types consolidated to `custom | kpi | table` — single `renderEChartsOption()` replaces 8 legacy per-type renderers
+- `custom` type accepts raw ECharts `option` object with data binding tokens (`$rows`, `$rows.column`, `$row0.column`, `$distinct.column`)
+- `dashcli suggest` system prompt updated to generate `custom` charts with dataset/encode patterns and theme documentation
+- `max_tokens` increased from 4096 to 8192 for richer custom chart output
+- All sample dashboards rewritten to use `custom | kpi | table` types
+
+### Added
+- ECharts theme registration (`dashcli` theme) with design system colors, grid defaults, and per-series-type styling
+- Column-not-found warning: visible amber banner on chart card + console.warn when data binding references a missing column
+- Empty data guard for custom charts: shows "No data" message instead of blank axes
+- ResizeObserver lifecycle management (`chartObservers` map) — observers cleaned up on instance dispose
+- CSS custom properties `--border-light` and `--hover` replacing hardcoded colors
+- `.dashcli-column-warning` and `.table-overflow` CSS classes replacing inline styles
+- `text-wrap: balance` on dashboard title, `transition` on table row hover
+
+### Fixed
+- Filter input padding aligned to 4px grid (10px → 12px)
+- Header/filter-bar background extends full-width on ultra-wide screens
+- Warning banner and table overflow text use CSS classes instead of inline styles
+
+### Removed
+- 8 legacy per-type rendering functions (`renderEChart`, `renderPieChart`, `renderScatterChart`, `renderGaugeChart`, `renderStackedBarChart`, `renderHeatmapChart`, `renderFunnelChart`, `renderCustomChart`)
+- Legacy chart type enum values (`bar`, `line`, `pie`, `scatter`, `gauge`, `area`, `stacked_bar`, `heatmap`, `funnel`)
+- Legacy fields `x`, `y`, `group`, `value`, `min`, `max` from ChartSpec schema
+- Legacy type-specific refinements (x/y required, group required for stacked_bar, value required for heatmap)
+
 ## [0.1.3.0] - 2026-03-25
 
 ### Added

@@ -46,3 +46,15 @@ Reduces time-to-first-dashboard to near-zero. Major differentiator.
 Add area, stacked_bar, heatmap, funnel chart types and multi_select, range, text filter types.
 Highest-impact step for dashboard expressiveness — all additive, existing specs unaffected.
 **Completed:** v0.1.3.0 (2026-03-25) — 4 chart types, 3 filter types, 57 new tests
+
+### First-class `custom` chart type — delete legacy types
+Consolidate 12 chart types to `custom | kpi | table`. Single `renderEChartsOption()` replaces 8 legacy renderers. Adds ECharts theme, data binding tokens, column-not-found warnings, and ResizeObserver lifecycle management.
+**Completed:** v0.1.4.0 (2026-03-26) — net-negative complexity, single rendering path
+
+## Deferred (from /design-review 2026-03-26)
+
+### Tablet breakpoint (768-1024px)
+Add intermediate 2-column grid layout for tablet viewports. Currently jumps from 3-column to 1-column at 768px. Would improve readability on iPad-class devices. DESIGN.md defines only 2 breakpoints — needs design decision.
+
+### Document warning banner and ECharts secondary colors in DESIGN.md
+Warning banner uses amber (#fef3c7/#92400e) not in the palette. ECharts secondary colors (#60a5fa, #93c5fd) used for multi-series charts are undocumented. Both work visually but should be formalized.

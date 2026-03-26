@@ -130,7 +130,7 @@ describe("validateSpec", () => {
     }
   });
 
-  it("rejects bar chart without x/y", () => {
+  it("rejects unknown chart type 'bar'", () => {
     const result = validateSpec({
       name: "test",
       title: "Test",
@@ -179,12 +179,17 @@ charts:
     position: [0, 0, 1, 1]
 
   - id: by_region
-    type: bar
+    type: custom
     query: "SELECT region, SUM(revenue) as revenue FROM \\"sales-test\\" GROUP BY region"
-    x: region
-    y: revenue
     label: Revenue by Region
     position: [1, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      series:
+        - type: bar
+          encode: { x: region, y: revenue }
 \`\`\``;
 
     const mockClient = {
@@ -230,11 +235,16 @@ layout:
   rows: auto
 charts:
   - id: c1
-    type: bar
+    type: custom
     query: "SELECT name, val FROM multi"
-    x: name
-    y: val
     position: [0, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      series:
+        - type: bar
+          encode: { x: name, y: val }
 \`\`\``;
 
     const mockClient = {
