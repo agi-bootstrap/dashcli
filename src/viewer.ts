@@ -201,6 +201,34 @@ ${spec.charts.map((chart) => renderChartCard(chart)).join("\n")}
 <script>
 const SPEC = ${JSON.stringify(spec).replace(/</g, '\\u003c')};
 
+echarts.registerTheme('dashcli', {
+  color: ['#2563eb', 'rgba(37,99,235,0.7)', 'rgba(37,99,235,0.5)', 'rgba(37,99,235,0.35)', 'rgba(37,99,235,0.2)', '#60a5fa', '#93c5fd'],
+  grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
+  categoryAxis: {
+    axisLabel: { fontSize: 11, color: '#737373' },
+    axisLine: { lineStyle: { color: '#e2e2e2' } },
+    axisTick: { show: false }
+  },
+  valueAxis: {
+    axisLabel: { fontSize: 11, color: '#737373' },
+    axisLine: { show: false },
+    splitLine: { lineStyle: { color: '#f0f0f0' } }
+  },
+  bar: { itemStyle: { borderRadius: [4, 4, 0, 0] } },
+  line: { lineStyle: { width: 2.5 }, smooth: true, symbol: 'circle', symbolSize: 6 },
+  pie: { itemStyle: { borderColor: '#ffffff', borderWidth: 2 }, label: { fontSize: 11, color: '#737373' } },
+  scatter: { symbolSize: 8 },
+  gauge: {
+    axisLine: { lineStyle: { width: 12, color: [[1, '#2563eb']] } },
+    axisTick: { show: false },
+    splitLine: { length: 8, lineStyle: { color: '#e2e2e2' } },
+    axisLabel: { fontSize: 11, color: '#737373' }
+  },
+  heatmap: { itemStyle: { borderColor: '#ffffff', borderWidth: 2, borderRadius: 2 } },
+  funnel: { itemStyle: { borderColor: '#ffffff', borderWidth: 2 }, label: { fontSize: 11, color: '#737373' } },
+  legend: { textStyle: { fontSize: 11, color: '#737373' } }
+});
+
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -269,47 +297,54 @@ function formatValue(val, format) {
 }
 
 const chartInstances = {};
+const chartObservers = {};
 
 async function renderChart(chart) {
-  const container = document.getElementById('chart-' + chart.id);
+  var container = document.getElementById('chart-' + chart.id);
   if (!container) return;
 
-  // For ECharts types, show loading on existing instance or set placeholder
-  if (['bar','line','pie','scatter','gauge','area','stacked_bar','heatmap','funnel'].includes(chart.type) && chartInstances[chart.id]) {
+  if (chart.type === 'custom' && chartInstances[chart.id]) {
     chartInstances[chart.id].showLoading();
   } else {
     container.innerHTML = '<div class="chart-loading">Loading...</div>';
   }
 
   try {
-    const data = await fetchChartData(chart.id);
+    var data = await fetchChartData(chart.id);
 
     if (chart.type === 'kpi') {
       renderKpi(container, chart, data);
     } else if (chart.type === 'table') {
       renderTable(container, chart, data);
-    } else if (chart.type === 'pie') {
-      renderPieChart(container, chart, data);
-    } else if (chart.type === 'scatter') {
-      renderScatterChart(container, chart, data);
-    } else if (chart.type === 'gauge') {
-      renderGaugeChart(container, chart, data);
-    } else if (chart.type === 'bar' || chart.type === 'line' || chart.type === 'area') {
-      renderEChart(container, chart, data);
-    } else if (chart.type === 'stacked_bar') {
-      renderStackedBarChart(container, chart, data);
-    } else if (chart.type === 'heatmap') {
-      renderHeatmapChart(container, chart, data);
-    } else if (chart.type === 'funnel') {
-      renderFunnelChart(container, chart, data);
+    } else {
+      // type: custom — the only ECharts path
+      if (!chart.option) {
+        container.innerHTML = '<div class="chart-error">Missing option</div>';
+        return;
+      }
+      if (!data.length) {
+        if (chartInstances[chart.id]) {
+          chartInstances[chart.id].dispose();
+          delete chartInstances[chart.id];
+          if (chartObservers[chart.id]) { chartObservers[chart.id].disconnect(); delete chartObservers[chart.id]; }
+        }
+        container.innerHTML = '<div class="chart-loading">No data</div>';
+        return;
+      }
+      var warnings = [];
+      var option = resolveDataBindings(chart.option, data, warnings);
+      if (warnings.length) {
+        console.warn('[dashcli] Chart "' + chart.id + '" column warnings:', warnings);
+      }
+      renderEChartsOption(container, chart.id, option, warnings);
     }
   } catch (err) {
     if (chartInstances[chart.id]) {
       chartInstances[chart.id].dispose();
       delete chartInstances[chart.id];
+      if (chartObservers[chart.id]) { chartObservers[chart.id].disconnect(); delete chartObservers[chart.id]; }
     }
-    const msg = String(err.message).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    container.innerHTML = '<div class="chart-error">' + msg + '</div>';
+    container.innerHTML = '<div class="chart-error">' + esc(String(err.message)) + '</div>';
   }
 }
 
@@ -348,337 +383,89 @@ function renderTable(container, chart, data) {
   container.innerHTML = html;
 }
 
-function renderEChart(container, chart, data) {
-  if (!data.length) {
-    if (chartInstances[chart.id]) {
-      chartInstances[chart.id].dispose();
-      delete chartInstances[chart.id];
-    }
-    container.innerHTML = '<div class="chart-loading">No data</div>';
-    return;
-  }
-
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const xData = data.map(r => r[chart.x]);
-  const yData = data.map(r => Number(r[chart.y]));
-
-  instance.setOption({
-    tooltip: { trigger: chart.type === 'bar' ? 'axis' : 'item' },
-    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: xData,
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { lineStyle: { color: '#e2e2e2' } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-    },
-    series: [{
-      type: chart.type === 'area' ? 'line' : chart.type,
-      data: yData,
-      itemStyle: { color: '#2563eb', borderRadius: chart.type === 'bar' ? [4, 4, 0, 0] : undefined },
-      lineStyle: (chart.type === 'line' || chart.type === 'area') ? { width: 2.5, color: '#2563eb' } : undefined,
-      areaStyle: chart.type === 'area' ? { color: 'rgba(37, 99, 235, 0.15)' } : undefined,
-      smooth: chart.type === 'line' || chart.type === 'area',
-      symbol: (chart.type === 'line' || chart.type === 'area') ? 'circle' : undefined,
-      symbolSize: (chart.type === 'line' || chart.type === 'area') ? 6 : undefined,
-    }],
-  }, true); // true = notMerge, replace entire option
-
-  instance.hideLoading();
-}
-
-function renderPieChart(container, chart, data) {
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const pieData = data.map((r, i) => {
-    const total = data.length;
-    const opacity = 1 - (i / total) * 0.6;
-    return {
-      name: String(r[chart.x]),
-      value: Number(r[chart.y]),
-      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')' },
-    };
-  });
-
-  instance.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      center: ['50%', '50%'],
-      data: pieData,
-      itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
-      label: { fontSize: 11, color: '#737373' },
-      emphasis: { itemStyle: { shadowBlur: 0 } },
-    }],
-  }, true);
-
-  instance.hideLoading();
-}
-
-function renderScatterChart(container, chart, data) {
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const scatterData = data.map(r => [Number(r[chart.x]), Number(r[chart.y])]);
-
-  instance.setOption({
-    tooltip: { trigger: 'item', formatter: function(p) { return chart.x + ': ' + Number(p.value[0]).toLocaleString() + '<br>' + chart.y + ': ' + Number(p.value[1]).toLocaleString(); } },
-    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
-    xAxis: {
-      type: 'value',
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { lineStyle: { color: '#e2e2e2' } },
-      axisTick: { show: false },
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-    },
-    series: [{
-      type: 'scatter',
-      data: scatterData,
-      symbolSize: 8,
-      itemStyle: { color: '#2563eb' },
-    }],
-  }, true);
-
-  instance.hideLoading();
-}
-
-function renderGaugeChart(container, chart, data) {
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const row = data[0] || {};
-  const val = Number(row.value ?? row[Object.keys(row)[0]]);
-  const minVal = chart.min != null ? chart.min : 0;
-  const maxVal = chart.max != null ? chart.max : 100;
-
-  instance.setOption({
-    series: [{
-      type: 'gauge',
-      min: minVal,
-      max: maxVal,
-      data: [{ value: val }],
-      axisLine: { lineStyle: { width: 12, color: [[1, '#2563eb']] } },
-      axisTick: { show: false },
-      splitLine: { length: 8, lineStyle: { color: '#e2e2e2' } },
-      axisLabel: { fontSize: 11, color: '#737373' },
-      pointer: { width: 4, length: '60%', itemStyle: { color: '#1a1a1a' } },
-      detail: { fontSize: 20, fontWeight: 700, color: '#1a1a1a', offsetCenter: [0, '70%'], formatter: function(v) { return formatValue(v, chart.format); } },
-      title: { show: false },
-    }],
-  }, true);
-
-  instance.hideLoading();
-}
-
-function renderStackedBarChart(container, chart, data) {
-  if (!data.length) {
-    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
-    container.innerHTML = '<div class="chart-loading">No data</div>';
-    return;
-  }
-
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const xValues = [];
-  const groupSet = new Set();
-  for (const r of data) {
-    if (xValues.indexOf(r[chart.x]) === -1) xValues.push(r[chart.x]);
-    groupSet.add(r[chart.group]);
-  }
-  const groups = Array.from(groupSet);
-
-  const series = groups.map(function(g, i) {
-    var opacity = groups.length <= 1 ? 1 : 1 - (i / (groups.length - 1)) * 0.7;
-    var groupData = xValues.map(function(x) {
-      var row = data.find(function(r) { return r[chart.x] === x && r[chart.group] === g; });
-      return row ? Number(row[chart.y]) : 0;
-    });
-    return {
-      name: String(g),
-      type: 'bar',
-      stack: 'total',
-      data: groupData,
-      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')', borderRadius: [0, 0, 0, 0] },
-    };
-  });
-  if (series.length) series[series.length - 1].itemStyle.borderRadius = [4, 4, 0, 0];
-
-  var showLegend = groups.length <= 8;
-  instance.setOption({
-    tooltip: { trigger: 'axis' },
-    legend: { show: showLegend, bottom: 0, textStyle: { fontSize: 11, color: '#737373' } },
-    grid: { left: 16, right: 16, top: 16, bottom: showLegend ? 48 : 32, containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: xValues,
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { lineStyle: { color: '#e2e2e2' } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#f0f0f0' } },
-    },
-    series: series,
-  }, true);
-
-  instance.hideLoading();
-}
-
-function renderHeatmapChart(container, chart, data) {
-  if (!data.length) {
-    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
-    container.innerHTML = '<div class="chart-loading">No data</div>';
-    return;
-  }
-
-  let instance = chartInstances[chart.id];
-  if (!instance) {
-    container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
-    ro.observe(container);
-  }
-
-  const xValues = [];
-  const yValues = [];
-  for (const r of data) {
-    if (xValues.indexOf(r[chart.x]) === -1) xValues.push(r[chart.x]);
-    if (yValues.indexOf(r[chart.y]) === -1) yValues.push(r[chart.y]);
-  }
-
-  const heatData = data.map(function(r) {
-    return [xValues.indexOf(r[chart.x]), yValues.indexOf(r[chart.y]), Number(r[chart.value])];
-  });
-  const maxVal = heatData.reduce(function(m, d) { return Math.max(m, d[2]); }, 0) || 1;
-
-  instance.setOption({
-    tooltip: {
-      formatter: function(p) {
-        return esc(String(xValues[p.value[0]])) + ' / ' + esc(String(yValues[p.value[1]])) + ': ' + Number(p.value[2]).toLocaleString();
+function resolveDataBindings(obj, data, warnings) {
+  if (typeof obj === 'string') {
+    if (obj === '$rows') return data;
+    if (obj.startsWith('$rows.')) {
+      var col = obj.slice(6);
+      if (data.length && !(col in data[0])) {
+        warnings.push('Column "' + col + '" not found in data. Available: ' + Object.keys(data[0]).join(', '));
       }
-    },
-    grid: { left: 16, right: 16, top: 16, bottom: 32, containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: xValues,
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { lineStyle: { color: '#e2e2e2' } },
-      axisTick: { show: false },
-    },
-    yAxis: {
-      type: 'category',
-      data: yValues,
-      axisLabel: { fontSize: 11, color: '#737373' },
-      axisLine: { show: false },
-    },
-    visualMap: {
-      min: 0,
-      max: maxVal,
-      inRange: { color: ['#f0f4ff', '#2563eb'] },
-      show: false,
-    },
-    series: [{
-      type: 'heatmap',
-      data: heatData,
-      label: { show: false },
-      itemStyle: { borderColor: '#ffffff', borderWidth: 2, borderRadius: 2 },
-    }],
-  }, true);
-
-  instance.hideLoading();
+      return data.map(function(r) { return r[col]; });
+    }
+    if (obj.startsWith('$row0.')) {
+      var col = obj.slice(6);
+      if (data.length && !(col in data[0])) {
+        warnings.push('Column "' + col + '" not found in data. Available: ' + Object.keys(data[0]).join(', '));
+      }
+      return data[0] ? data[0][col] : null;
+    }
+    if (obj.startsWith('$distinct.')) {
+      var col = obj.slice(10);
+      if (data.length && !(col in data[0])) {
+        warnings.push('Column "' + col + '" not found in data. Available: ' + Object.keys(data[0]).join(', '));
+      }
+      var seen = {};
+      var result = [];
+      for (var i = 0; i < data.length; i++) {
+        var v = data[i][col];
+        if (!seen[v]) { seen[v] = true; result.push(v); }
+      }
+      return result;
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(function(item) { return resolveDataBindings(item, data, warnings); });
+  }
+  if (obj !== null && typeof obj === 'object') {
+    var out = {};
+    for (var key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        out[key] = resolveDataBindings(obj[key], data, warnings);
+      }
+    }
+    return out;
+  }
+  return obj;
 }
 
-function renderFunnelChart(container, chart, data) {
-  if (!data.length) {
-    if (chartInstances[chart.id]) { chartInstances[chart.id].dispose(); delete chartInstances[chart.id]; }
-    container.innerHTML = '<div class="chart-loading">No data</div>';
-    return;
-  }
+function renderEChartsOption(container, chartId, option, warnings) {
+  // Remove stale warning banner from previous render
+  var oldBanner = container.querySelector('.dashcli-column-warning');
+  if (oldBanner) oldBanner.remove();
 
-  let instance = chartInstances[chart.id];
+  var instance = chartInstances[chartId];
   if (!instance) {
     container.innerHTML = '';
-    instance = echarts.init(container);
-    chartInstances[chart.id] = instance;
-    const ro = new ResizeObserver(() => instance.resize());
+    instance = echarts.init(container, 'dashcli');
+    chartInstances[chartId] = instance;
+    var ro = new ResizeObserver(function() { instance.resize(); });
     ro.observe(container);
+    chartObservers[chartId] = ro;
   }
 
-  const funnelData = data.map(function(r, i) {
-    var opacity = data.length <= 1 ? 1 : 1 - (i / (data.length - 1)) * 0.7;
-    return {
-      name: String(r[chart.x]),
-      value: Number(r[chart.y]),
-      itemStyle: { color: 'rgba(37, 99, 235, ' + opacity + ')' },
-    };
-  });
-
-  instance.setOption({
-    tooltip: { trigger: 'item', formatter: '{b}: {c}' },
-    series: [{
-      type: 'funnel',
-      left: '10%',
-      width: '80%',
-      top: 16,
-      bottom: 16,
-      data: funnelData,
-      label: { fontSize: 11, color: '#737373' },
-      itemStyle: { borderColor: '#ffffff', borderWidth: 2 },
-    }],
-  }, true);
-
+  try {
+    instance.setOption(option, true);
+  } catch (e) {
+    container.innerHTML = '<div class="chart-error">ECharts error: ' + esc(String(e.message)) + '</div>';
+    if (chartInstances[chartId]) {
+      chartInstances[chartId].dispose();
+      delete chartInstances[chartId];
+      if (chartObservers[chartId]) { chartObservers[chartId].disconnect(); delete chartObservers[chartId]; }
+    }
+    return;
+  }
   instance.hideLoading();
+
+  if (warnings && warnings.length) {
+    var banner = document.createElement('div');
+    banner.className = 'dashcli-column-warning';
+    banner.style.cssText = 'position:absolute;top:0;left:0;right:0;background:#fef3c7;color:#92400e;font-size:12px;padding:4px 8px;z-index:10;border-radius:4px 4px 0 0;';
+    banner.textContent = 'Warning: ' + warnings.join('; ');
+    container.style.position = 'relative';
+    container.appendChild(banner);
+  }
 }
 
 async function loadAll() {

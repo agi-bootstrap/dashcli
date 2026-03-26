@@ -41,10 +41,11 @@ describe("export integration", () => {
     expect(html).not.toContain('src="https://cdn.jsdelivr.net');
   });
 
-  it("includes chart render functions for new types", () => {
-    expect(html).toContain("renderStackedBarChart");
-    expect(html).toContain("renderHeatmapChart");
-    expect(html).toContain("renderFunnelChart");
+  it("includes renderEChartsOption as the single ECharts render path", () => {
+    expect(html).toContain("renderEChartsOption");
+    expect(html).not.toContain("renderStackedBarChart");
+    expect(html).not.toContain("renderHeatmapChart");
+    expect(html).not.toContain("renderFunnelChart");
   });
 
   it("includes export date stamp", () => {

@@ -40,20 +40,32 @@ charts:
     position: [2, 0, 1, 1]
 
   - id: by_region
-    type: bar
+    type: custom
     query: "SELECT region, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY region ORDER BY revenue DESC"
-    x: region
-    y: revenue
     label: Revenue by Region
     position: [0, 1, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: bar
+          encode: { x: region, y: revenue }
 
   - id: trend
-    type: line
+    type: custom
     query: "SELECT date as month, SUM(revenue) as revenue FROM sales WHERE {{date_range}} AND {{region}} GROUP BY date ORDER BY date"
-    x: month
-    y: revenue
     label: Revenue Trend
     position: [2, 1, 1, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      tooltip: { trigger: axis }
+      series:
+        - type: line
+          encode: { x: month, y: revenue }
 
   - id: detail_table
     type: table
