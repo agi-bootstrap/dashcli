@@ -2,10 +2,6 @@
 
 ## Deferred (from /autoplan review 2026-03-26)
 
-### `dashcli data.csv` — One-command-to-dashboard
-Auto-suggest + auto-serve in one command. `dashcli data.csv` opens a browser with a heuristic-generated dashboard. The suggest-then-serve pipeline becomes an internal implementation detail. Requires stdin support for serve.
-**Source:** CEO subagent finding #1 — "the value is a visible dashboard, not a YAML spec"
-
 ### Template-based suggest
 Ship 5-10 hand-crafted YAML templates for common data shapes (time-series, event log, transactions). Use profiler to select best-fit template and fill in column names. Higher quality than generic layout algorithm.
 **Source:** CEO subagent finding #4b
@@ -64,6 +60,10 @@ Highest-impact step for dashboard expressiveness — all additive, existing spec
 ### First-class `custom` chart type — delete legacy types
 Consolidate 12 chart types to `custom | kpi | table`. Single `renderEChartsOption()` replaces 8 legacy renderers. Adds ECharts theme, data binding tokens, column-not-found warnings, and ResizeObserver lifecycle management.
 **Completed:** v0.1.4.0 (2026-03-26) — net-negative complexity, single rendering path
+
+### `dashcli data.csv` — One-command-to-dashboard
+Auto-suggest + auto-serve in one command. `dashcli data.csv` opens a browser with a heuristic-generated dashboard. In-memory serve via `startServerFromSpec()`, no temp YAML files.
+**Completed:** v0.1.6.0 (2026-03-27) — with lifecycle management, shared fetch handler, 9 new tests
 
 ### P0+P1: Agent-first CLI output + read/diff commands
 `--json` flag on all commands, `dashcli read`, `dashcli diff`, JSON Schema publication,

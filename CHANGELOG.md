@@ -2,6 +2,21 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.6.0] - 2026-03-27
+
+### Added
+- **One-command dashboard:** `dashcli data.csv` profiles the data, generates a spec, serves it, and opens the browser. No intermediate files, no YAML visible. Also works as `dashcli dashboard data.csv`.
+- `startServerFromSpec()` — in-memory serve path that accepts a DashboardSpec object directly, bypassing YAML serialization to disk. Aligns with the "YAML is invisible plumbing" strategy.
+- `loadDashboardFromSpec()` — loads dashboard context from an in-memory spec + data source path.
+- `createFetchHandler()` — shared request handler extracted from `startServer` and `startServerFromSpec`, eliminating 120 lines of duplication.
+- Server lifecycle management: kills previous dashcli server on the same port, cleans up on SIGINT/SIGTERM.
+- Cross-platform browser opening (macOS `open`, Linux `xdg-open`, Windows `start`).
+- 9 new tests: in-memory serve, end-to-end pipeline (all charts return data), CLI integration, error paths.
+- JSON output support for the dashboard command (`--json` flag).
+
+### Changed
+- Dropdown value precomputation extracted to shared `computeDropdownValues()` function (DRY).
+
 ## [0.1.5.0] - 2026-03-26
 
 ### Added
