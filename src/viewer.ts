@@ -42,8 +42,6 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: calc(var(--sp) * 4) calc(var(--sp) * 6);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
 }
 .header h1 { font-size: 22px; font-weight: 600; line-height: 1.2; text-wrap: balance; }
 .header .subtitle {
@@ -61,8 +59,6 @@ body {
   gap: calc(var(--sp) * 3);
   row-gap: calc(var(--sp) * 2);
   padding: calc(var(--sp) * 3) calc(var(--sp) * 6);
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
 }
 .filter-group { display: flex; align-items: center; gap: calc(var(--sp) * 2); }
 .filter-label {
@@ -81,7 +77,8 @@ body {
   background: var(--surface);
   color: var(--text);
   outline: none;
-  transition: border-color 150ms ease;
+  cursor: pointer;
+  transition: border-color 0.15s ease-out;
 }
 select.filter-input { cursor: pointer; }
 .filter-input:focus { border-color: var(--accent); }
@@ -99,9 +96,15 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
   max-width: 1440px;
   margin: 0 auto;
 }
-.header, .filter-bar {
-  padding-left: max(calc(var(--sp) * 6), calc((100% - 1392px) / 2));
-  padding-right: max(calc(var(--sp) * 6), calc((100% - 1392px) / 2));
+/* Full-width background wrappers with constrained inner content */
+.header-wrap, .filter-wrap {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.header-wrap > .header, .filter-wrap > .filter-bar {
+  max-width: 1440px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Cards */
@@ -202,14 +205,16 @@ select.filter-input[multiple] { min-height: 44px; max-height: 88px; }
 </head>
 <body>
 
-<div class="header">
-  <div>
-    <h1>${escHtml(spec.title)}</h1>
-    <div class="subtitle">dashcli &middot; ${escHtml(spec.name)}.yaml</div>
+<div class="header-wrap">
+  <div class="header">
+    <div>
+      <h1>${escHtml(spec.title)}</h1>
+      <div class="subtitle">dashcli &middot; ${escHtml(spec.name)}.yaml</div>
+    </div>
   </div>
 </div>
 
-${renderFilterBar(spec.filters)}
+${renderFilterBarWrapped(spec.filters)}
 
 <div class="dashboard-grid">
 ${spec.charts.map((chart) => renderChartCard(chart)).join("\n")}
@@ -545,7 +550,7 @@ if (window.location.protocol !== 'file:') {
 </html>`;
 }
 
-function renderFilterBar(filters: FilterSpec[]): string {
+function renderFilterBarWrapped(filters: FilterSpec[]): string {
   if (!filters.length) return "";
 
   const groups = filters.map((f) => {
@@ -588,7 +593,7 @@ function renderFilterBar(filters: FilterSpec[]): string {
     }
   });
 
-  return `<div class="filter-bar">${groups.join("\n")}</div>`;
+  return `<div class="filter-wrap"><div class="filter-bar">${groups.join("\n")}</div></div>`;
 }
 
 function renderChartCard(chart: ChartSpec): string {

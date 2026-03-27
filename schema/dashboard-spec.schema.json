@@ -1,0 +1,206 @@
+{
+  "$ref": "#/definitions/DashboardSpec",
+  "definitions": {
+    "DashboardSpec": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "refresh": {
+          "type": "string",
+          "enum": [
+            "manual"
+          ],
+          "default": "manual"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "date_range",
+                  "dropdown",
+                  "multi_select",
+                  "range",
+                  "text"
+                ]
+              },
+              "column": {
+                "type": "string"
+              },
+              "default": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "column",
+              "default"
+            ],
+            "additionalProperties": false
+          },
+          "default": []
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "columns": {
+              "type": "number",
+              "default": 3
+            },
+            "rows": {
+              "type": "string",
+              "const": "auto",
+              "default": "auto"
+            }
+          },
+          "additionalProperties": false
+        },
+        "charts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "bar",
+                  "line",
+                  "kpi",
+                  "table",
+                  "pie",
+                  "scatter",
+                  "gauge",
+                  "area",
+                  "stacked_bar",
+                  "heatmap",
+                  "funnel"
+                ]
+              },
+              "query": {
+                "type": "string"
+              },
+              "position": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "x": {
+                "type": "string"
+              },
+              "y": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "format": {
+                "type": "string",
+                "enum": [
+                  "currency",
+                  "number",
+                  "percent"
+                ]
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "group": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "query",
+              "position"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "name",
+        "title",
+        "source",
+        "layout",
+        "charts"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

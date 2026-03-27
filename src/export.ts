@@ -6,7 +6,7 @@ import { executeChartQuery } from "./query";
 
 const ECHARTS_CDN = "https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js";
 
-export async function exportDashboard(specPath: string, outDir?: string) {
+export async function exportDashboard(specPath: string, outDir?: string): Promise<string> {
   const ctx = loadDashboard(specPath);
   const { spec, db, dropdownValues } = ctx;
 
@@ -94,8 +94,8 @@ async function populateDropdowns() {
 
   // Hide filter bar in export — filters can't work without a server
   html = html.replace(
-    '<div class="filter-bar">',
-    '<div class="filter-bar" style="display:none">'
+    '<div class="filter-wrap">',
+    '<div class="filter-wrap" style="display:none">'
   );
 
   // Update subtitle to indicate this is an export with timestamp
@@ -116,4 +116,6 @@ async function populateDropdowns() {
   console.log(`\n  ✓ Exported: ${outFile}`);
   console.log(`    ${spec.charts.length} charts, ${Object.keys(filterValues).length} filters`);
   console.log(`    ${sizeKb} KB (self-contained, works offline)\n`);
+
+  return outFile;
 }

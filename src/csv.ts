@@ -14,19 +14,14 @@ export function loadCsv(csvPath: string): Database {
 
   const db = new Database(":memory:");
 
-  // Infer column types by sampling up to 10 non-empty values per column
-  const colTypes = headers.map((_h, i) => {
-    for (let r = 0; r < Math.min(rows.length, 10); r++) {
-      const val = rows[r]?.[i] ?? "";
-      if (val !== "") return inferSqliteType(val);
-    }
-    return "TEXT"; // all sampled values empty
+  // Infer column types by sampling up to 10 data rows
+  const sampleRows = rows.slice(0, Math.min(10, rows.length));
+  const columnTypes = headers.map((h, i) => {
+    const samples = sampleRows.map((r) => r[i] ?? "").filter((s) => s !== "");
+    return samples.length === 0 ? "TEXT" : inferSqliteTypeFromSamples(samples);
   });
 
-  const colDefs = headers.map((h, i) => {
-    return `"${escId(h)}" ${colTypes[i]}`;
-  });
-
+  const colDefs = headers.map((h, i) => `"${escId(h)}" ${columnTypes[i]}`);
   db.run(`CREATE TABLE "${tableName}" (${colDefs.join(", ")})`);
 
   const placeholders = headers.map(() => "?").join(", ");
@@ -34,7 +29,7 @@ export function loadCsv(csvPath: string): Database {
 
   const insertAll = db.transaction((dataRows: string[][]) => {
     for (const row of dataRows) {
-      const values = row.map((val, i) => coerceByType(val, colTypes[i]));
+      const values = row.map((val, i) => coerceToType(val, columnTypes[i]));
       insert.run(...values);
     }
   });
@@ -76,7 +71,17 @@ function inferSqliteType(sample: string): string {
   return "TEXT";
 }
 
-function coerceByType(val: string, type: string): string | number | null {
+/** Infer type from multiple samples — falls back to TEXT if any sample disagrees. */
+function inferSqliteTypeFromSamples(samples: string[]): string {
+  const types = samples.map(inferSqliteType);
+  const unique = new Set(types);
+  if (unique.size === 1) return types[0];
+  // Mixed INTEGER/REAL → REAL; anything else → TEXT
+  if (unique.size === 2 && unique.has("INTEGER") && unique.has("REAL")) return "REAL";
+  return "TEXT";
+}
+
+function coerceToType(val: string, type: string): string | number | null {
   if (val === "") return null;
   if (type === "INTEGER") { const n = parseInt(val, 10); return isNaN(n) ? val : n; }
   if (type === "REAL") { const n = parseFloat(val); return isNaN(n) ? val : n; }

@@ -6,6 +6,8 @@ Agent-native BI dashboards from CSV and JSON files. Powered by Bun, SQLite, and 
 dashcli suggest data.csv        # generate a dashboard spec from your data
 dashcli serve spec.yaml         # live-reloading dashboard at localhost:3838
 dashcli export spec.yaml        # standalone HTML you can email or host anywhere
+dashcli read spec.yaml          # structured spec summary (text or JSON)
+dashcli diff a.yaml b.yaml      # compare two specs, see what changed
 ```
 
 ## Install — 30 seconds
@@ -85,6 +87,25 @@ Outputs column classification as JSON — types, cardinality, sample values. Use
 ### `dashcli create [name]`
 
 Scaffolds a new dashboard with sample data (`sales.csv`) and a ready-to-edit YAML spec.
+
+### `dashcli read <spec.yaml>`
+
+Parses a YAML spec and outputs a structured summary: name, title, source, charts (id, type, position), filters, and layout. Works offline with no API key.
+
+### `dashcli diff <specA> <specB>`
+
+Compares two dashboard specs and outputs a structured changelog keyed by chart/filter ID — added, removed, and changed items with field-level detail.
+
+### Global flags
+
+| Flag | Effect |
+|------|--------|
+| `--json` | Outputs machine-readable JSON envelope: `{ ok, data, error: { message, code } }` |
+| `--format <text\|json>` | Output format (`--json` always wins if both are set) |
+
+**Error codes:** `SPEC_VALIDATION`, `FILE_NOT_FOUND`, `YAML_PARSE_ERROR`, `DATA_SOURCE_ERROR`, `RUNTIME_ERROR`, `UNKNOWN_COMMAND`
+
+**Exit codes:** 0 = success, 1 = validation/file error, 2 = data source error, 3 = runtime error
 
 ## Dashboard spec
 
@@ -183,9 +204,14 @@ src/
   suggest.ts      Heuristic + AI-powered spec generation
   profiler.ts     Column classification + type inference
   utils.ts        Shared utilities
+  read.ts         dashcli read — spec summary output
+  diff.ts         dashcli diff — spec comparison
+  cli-utils.ts    JSON envelope, error codes, output formatting
+  gen-schema.ts   JSON Schema generator (Zod -> JSON Schema)
 
+schema/           Published JSON Schema for dashboard specs
 sample/           Example dashboards and data
-test/             Test suite
+test/             Test suite (239 tests across 20 files)
 ```
 
 ## Development
@@ -194,6 +220,7 @@ test/             Test suite
 bun run dev              # run CLI in dev mode
 bun run typecheck        # type-check without emitting
 bun test                 # run test suite
+bun run gen:schema       # regenerate JSON Schema from Zod spec
 ```
 
 ## Design

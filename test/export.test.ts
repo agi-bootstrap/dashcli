@@ -34,7 +34,7 @@ describe("export integration", () => {
   });
 
   it("hides filter bar in exported HTML", () => {
-    expect(html).toContain('class="filter-bar" style="display:none"');
+    expect(html).toContain('class="filter-wrap" style="display:none"');
   });
 
   it("inlines ECharts source (no CDN script tag)", () => {

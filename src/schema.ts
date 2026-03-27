@@ -41,7 +41,19 @@ export const DashboardSpec = z.object({
   filters: z.array(FilterSpec).default([]),
   layout: LayoutSpec,
   charts: z.array(ChartSpec),
-});
+}).refine(
+  (spec) => {
+    const ids = spec.charts.map((c) => c.id);
+    return new Set(ids).size === ids.length;
+  },
+  { message: "Chart IDs must be unique" },
+).refine(
+  (spec) => {
+    const ids = spec.filters.map((f) => f.id);
+    return new Set(ids).size === ids.length;
+  },
+  { message: "Filter IDs must be unique" },
+);
 
 export type DashboardSpec = z.infer<typeof DashboardSpec>;
 export type ChartSpec = z.infer<typeof ChartSpec>;
