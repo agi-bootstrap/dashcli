@@ -1,19 +1,40 @@
 # dashcli
 
-A lightweight CLI for creating interactive data dashboards from CSV and JSON files. Powered by Bun, SQLite, and ECharts.
+Agent-native BI dashboards from CSV and JSON files. Powered by Bun, SQLite, and ECharts.
 
 ```
-dashcli suggest data.csv        # AI generates dashboard specs from your data
+dashcli suggest data.csv        # generate a dashboard spec from your data
 dashcli serve spec.yaml         # live-reloading dashboard at localhost:3838
 dashcli export spec.yaml        # standalone HTML you can email or host anywhere
 ```
 
-## Install
+## Install — 30 seconds
 
-Requires [Bun](https://bun.sh).
+**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Git](https://git-scm.com/), [Bun](https://bun.sh/) v1.0+
+
+### Step 1: Install on your machine
+
+Open Claude Code and paste this. Claude does the rest.
+
+> Install dashcli: run **`git clone https://github.com/agi-bootstrap/dashcli.git ~/.dashcli && cd ~/.dashcli && ./setup`** then add a "dashcli" section to CLAUDE.md that says: dashcli is installed at ~/.dashcli. Use it to create data dashboards from CSV/JSON files. Commands: `bun ~/.dashcli/src/index.ts suggest <file>` generates a YAML dashboard spec on stdout, `bun ~/.dashcli/src/index.ts serve <spec>` launches a live-reloading dashboard at localhost:3838 (watches both spec and data files — auto-refreshes when either changes), `bun ~/.dashcli/src/index.ts export <spec>` creates standalone HTML, `bun ~/.dashcli/src/index.ts profile <file>` outputs column classification as JSON. When the user asks to visualize data, create a dashboard, or analyze a CSV/JSON file — use dashcli. Add `--ai` to suggest for LLM-powered specs (requires ANTHROPIC_API_KEY).
+
+### Step 2: Add to your repo so teammates get it (optional)
+
+> Add dashcli to this project: run **`cp -Rf ~/.dashcli .dashcli && rm -rf .dashcli/.git && cd .dashcli && ./setup`** then add a "dashcli" section to this project's CLAUDE.md listing the commands and telling Claude to use dashcli when the user asks to visualize data or create dashboards.
+
+Real files get committed to your repo (not a submodule), so `git clone` just works. Everything lives inside `.dashcli/`. Nothing touches your PATH or runs in the background.
+
+### Manual install (without Claude Code)
 
 ```bash
-bun install
+git clone https://github.com/agi-bootstrap/dashcli.git ~/.dashcli
+cd ~/.dashcli && ./setup
+```
+
+Then use `bun ~/.dashcli/src/index.ts` as the command, or add an alias:
+
+```bash
+alias dashcli='bun ~/.dashcli/src/index.ts'
 ```
 
 ## Quick start
@@ -27,17 +48,29 @@ dashcli serve dashboards/my-dashboard.yaml
 # open http://localhost:3838/d/my-dashboard
 ```
 
+Or point at any CSV:
+
+```bash
+dashcli suggest data.csv > spec.yaml
+dashcli serve spec.yaml
+```
+
 ## Commands
 
-### `dashcli create [name]`
+### `dashcli suggest <source> [--ai]`
 
-Scaffolds a new dashboard with sample data (`sales.csv`) and a ready-to-edit YAML spec.
+Generates a dashboard spec from a CSV or JSON file.
 
-### `dashcli serve <spec.yaml>`
+- **Default (heuristic):** Profiles columns, classifies types, generates a deterministic YAML spec. No API key, no network, under 100ms.
+- **`--ai` flag:** Uses Claude to generate 3-5 richer specs with semantic understanding. Requires `ANTHROPIC_API_KEY`.
+
+Both modes output YAML to stdout for composability.
+
+### `dashcli serve <spec.yaml> [--port n]`
 
 Launches a local server on port 3838 with:
 
-- Interactive filters (date range, dropdown)
+- Interactive filters (date range, dropdown, multi-select, range, text search)
 - Live reload via SSE — edit the YAML or data file and the browser updates automatically
 - Responsive layout (CSS Grid, mobile breakpoint at 768px)
 
@@ -45,9 +78,13 @@ Launches a local server on port 3838 with:
 
 Exports a self-contained HTML file with ECharts and all data embedded. Works offline, no server needed.
 
-### `dashcli suggest <source> [--out dir]`
+### `dashcli profile <source>`
 
-Analyzes your CSV/JSON data and generates 3-5 dashboard specs using Claude (requires `ANTHROPIC_API_KEY`). Each spec is validated against the schema before writing.
+Outputs column classification as JSON — types, cardinality, sample values. Useful for agent composability.
+
+### `dashcli create [name]`
+
+Scaffolds a new dashboard with sample data (`sales.csv`) and a ready-to-edit YAML spec.
 
 ## Dashboard spec
 
@@ -143,7 +180,9 @@ src/
   csv.ts          CSV parser + type inference
   json.ts         JSON adapter
   export.ts       Standalone HTML export
-  suggest.ts      AI-powered spec generation (Claude API)
+  suggest.ts      Heuristic + AI-powered spec generation
+  profiler.ts     Column classification + type inference
+  utils.ts        Shared utilities
 
 sample/           Example dashboards and data
 test/             Test suite
