@@ -14,7 +14,7 @@ function makeSpec(overrides: Record<string, unknown> = {}) {
     layout: { columns: 3 },
     charts: [
       { id: "c1", type: "kpi", query: "SELECT 1 as value", position: [0, 0, 1, 1] },
-      { id: "c2", type: "bar", query: "SELECT x, y FROM t", position: [1, 0, 1, 1], x: "x", y: "y" },
+      { id: "c2", type: "custom", query: "SELECT x, y FROM t", position: [1, 0, 1, 1], option: { series: [{ type: "bar", encode: { x: "x", y: "y" } }] } },
     ],
     filters: [
       { id: "f1", type: "dropdown", column: "region", default: "all" },
@@ -73,7 +73,7 @@ describe("diffSpecs", () => {
     const removed = diff.charts.find((c) => c.id === "c2");
     expect(removed).toBeDefined();
     expect(removed!.type).toBe("removed");
-    expect(removed!.chartType).toBe("bar");
+    expect(removed!.chartType).toBe("custom");
   });
 
   it("detects changed chart fields", () => {

@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { readFileSync } from "fs";
+import { escId, deriveTableName } from "./utils";
 
 export function loadCsv(csvPath: string): Database {
   const text = readFileSync(csvPath, "utf-8");
@@ -9,7 +10,6 @@ export function loadCsv(csvPath: string): Database {
   const headers = parseCsvLine(lines[0]);
   const rows = lines.slice(1).map(parseCsvLine);
 
-  // Derive table name from filename (sales.csv → sales)
   const tableName = deriveTableName(csvPath);
 
   const db = new Database(":memory:");
@@ -27,8 +27,8 @@ export function loadCsv(csvPath: string): Database {
   const placeholders = headers.map(() => "?").join(", ");
   const insert = db.prepare(`INSERT INTO "${tableName}" VALUES (${placeholders})`);
 
-  const insertAll = db.transaction((rows: string[][]) => {
-    for (const row of rows) {
+  const insertAll = db.transaction((dataRows: string[][]) => {
+    for (const row of dataRows) {
       const values = row.map((val, i) => coerceToType(val, columnTypes[i]));
       insert.run(...values);
     }
@@ -88,12 +88,5 @@ function coerceToType(val: string, type: string): string | number | null {
   return val;
 }
 
-/** Derive a SQL-safe table name from a CSV file path */
-export function deriveTableName(csvPath: string): string {
-  return escId(csvPath.split("/").pop()!.replace(/\.csv$/i, ""));
-}
-
-/** Escape a SQL identifier by doubling internal quotes */
-function escId(s: string): string {
-  return s.replace(/"/g, '""');
-}
+// Re-export for backward compatibility with tests
+export { deriveTableName } from "./utils";

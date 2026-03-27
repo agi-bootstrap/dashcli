@@ -1,8 +1,8 @@
 import { describe, it, expect, afterAll } from "bun:test";
 import { resolve } from "path";
-import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from "fs";
+import { writeFileSync, mkdirSync, rmSync, existsSync } from "fs";
 import { parse as parseYaml } from "yaml";
-import { buildSchemaSummary, parseYamlBlocks, validateSpec, suggestDashboards } from "../src/suggest";
+import { buildSchemaSummary, parseYamlBlocks, validateSpec, suggestAI } from "../src/suggest";
 import { loadDataSource } from "../src/datasource";
 import { DashboardSpec } from "../src/schema";
 
@@ -130,7 +130,7 @@ describe("validateSpec", () => {
     }
   });
 
-  it("rejects bar chart without x/y", () => {
+  it("rejects unknown chart type 'bar'", () => {
     const result = validateSpec({
       name: "test",
       title: "Test",
@@ -154,11 +154,9 @@ describe("validateSpec", () => {
   });
 });
 
-describe("suggestDashboards", () => {
-  it("generates specs from a CSV file using a mock client", async () => {
+describe("suggestAI", () => {
+  it("returns YAML string from mock client", async () => {
     const csvPath = writeFixture("sales-test.csv", "date,region,revenue,deals\n2025-01-01,North,10000,5\n2025-02-01,South,20000,10\n");
-    const outDir = resolve(FIXTURES, "suggest-out");
-    mkdirSync(outDir, { recursive: true });
 
     const mockYaml = `\`\`\`yaml
 name: sales-overview
@@ -181,12 +179,17 @@ charts:
     position: [0, 0, 1, 1]
 
   - id: by_region
-    type: bar
+    type: custom
     query: "SELECT region, SUM(revenue) as revenue FROM \\"sales-test\\" GROUP BY region"
-    x: region
-    y: revenue
     label: Revenue by Region
     position: [1, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      series:
+        - type: bar
+          encode: { x: region, y: revenue }
 \`\`\``;
 
     const mockClient = {
@@ -197,27 +200,68 @@ charts:
       },
     };
 
-    const files = await suggestDashboards(csvPath, {
-      outDir,
-      client: mockClient as any,
-    });
+    const result = await suggestAI(csvPath, { client: mockClient as any });
+    expect(typeof result).toBe("string");
+    expect(result).not.toContain("<SOURCE_PLACEHOLDER>");
 
-    expect(files).toHaveLength(1);
-    expect(existsSync(files[0])).toBe(true);
+    const parsed = parseYaml(result);
+    const validated = DashboardSpec.safeParse(parsed);
+    expect(validated.success).toBe(true);
+  });
 
-    const content = readFileSync(files[0], "utf-8");
-    expect(content).toContain("source: ../sales-test.csv");
-    expect(content).not.toContain("<SOURCE_PLACEHOLDER>");
+  it("returns multi-doc YAML with --- separators", async () => {
+    const csvPath = writeFixture("multi.csv", "name,val\nA,1\nB,2\n");
 
-    const parsed = parseYaml(content);
-    const result = DashboardSpec.safeParse(parsed);
-    expect(result.success).toBe(true);
+    const mockResponse = `\`\`\`yaml
+name: dash-one
+title: Dashboard One
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 3
+  rows: auto
+charts:
+  - id: c1
+    type: kpi
+    query: "SELECT SUM(val) as value FROM multi"
+    position: [0, 0, 1, 1]
+\`\`\`
+
+\`\`\`yaml
+name: dash-two
+title: Dashboard Two
+source: <SOURCE_PLACEHOLDER>
+layout:
+  columns: 2
+  rows: auto
+charts:
+  - id: c1
+    type: custom
+    query: "SELECT name, val FROM multi"
+    position: [0, 0, 2, 1]
+    option:
+      dataset: { source: "$rows" }
+      xAxis: { type: category }
+      yAxis: {}
+      series:
+        - type: bar
+          encode: { x: name, y: val }
+\`\`\``;
+
+    const mockClient = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text" as const, text: mockResponse }],
+        }),
+      },
+    };
+
+    const result = await suggestAI(csvPath, { client: mockClient as any });
+    const docs = result.split("\n---\n");
+    expect(docs.length).toBe(2);
   });
 
   it("skips invalid YAML blocks and keeps valid ones", async () => {
     const csvPath = writeFixture("skip-test.csv", "x,y\n1,2\n");
-    const outDir = resolve(FIXTURES, "skip-out");
-    mkdirSync(outDir, { recursive: true });
 
     const mockResponse = `\`\`\`yaml
 name: valid-spec
@@ -245,46 +289,8 @@ not: valid: yaml: [broken
       },
     };
 
-    const files = await suggestDashboards(csvPath, {
-      outDir,
-      client: mockClient as any,
-    });
-
-    expect(files).toHaveLength(1);
-  });
-
-  it("skips specs that fail Zod validation", async () => {
-    const csvPath = writeFixture("zod-fail.csv", "a,b\n1,2\n");
-    const outDir = resolve(FIXTURES, "zod-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const mockResponse = `\`\`\`yaml
-name: missing-title
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT 1"
-    position: [0, 0, 1, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text" as const, text: mockResponse }],
-        }),
-      },
-    };
-
-    const files = await suggestDashboards(csvPath, {
-      outDir,
-      client: mockClient as any,
-    });
-
-    // Missing 'title' field should cause validation failure
-    expect(files).toHaveLength(0);
+    const result = await suggestAI(csvPath, { client: mockClient as any });
+    expect(result).toContain("valid-spec");
   });
 
   it("throws when API returns no yaml blocks", async () => {
@@ -299,204 +305,8 @@ charts:
     };
 
     expect(
-      suggestDashboards(csvPath, { client: mockClient as any }),
+      suggestAI(csvPath, { client: mockClient as any }),
     ).rejects.toThrow("No valid YAML blocks found");
-  });
-
-  it("sanitizes spec names to prevent path traversal", async () => {
-    const csvPath = writeFixture("traversal.csv", "x\n1\n");
-    const outDir = resolve(FIXTURES, "traversal-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const mockResponse = `\`\`\`yaml
-name: ../../etc/evil
-title: Traversal Attempt
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-  rows: auto
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT 1 as value"
-    position: [0, 0, 1, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text" as const, text: mockResponse }],
-        }),
-      },
-    };
-
-    const files = await suggestDashboards(csvPath, {
-      outDir,
-      client: mockClient as any,
-    });
-
-    expect(files).toHaveLength(1);
-    // Should be sanitized to a safe filename within outDir
-    expect(files[0]).toContain("traversal-out");
-    expect(files[0]).not.toContain("..");
-    expect(files[0]).toEndWith("etc-evil.yaml");
-  });
-
-  it("warns on truncated API response (max_tokens)", async () => {
-    const csvPath = writeFixture("trunc.csv", "x\n1\n");
-    const outDir = resolve(FIXTURES, "trunc-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const mockYaml = `\`\`\`yaml
-name: trunc-spec
-title: Truncated
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-  rows: auto
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT 1 as value"
-    position: [0, 0, 1, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          stop_reason: "max_tokens",
-          content: [{ type: "text" as const, text: mockYaml }],
-        }),
-      },
-    };
-
-    const origError = console.error;
-    const errors: string[] = [];
-    console.error = (...args: any[]) => errors.push(args.join(" "));
-    try {
-      const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
-      expect(files).toHaveLength(1);
-      expect(errors.some((e) => e.includes("truncated"))).toBe(true);
-    } finally {
-      console.error = origError;
-    }
-  });
-
-  it("deduplicates identical spec names", async () => {
-    const csvPath = writeFixture("dedup.csv", "x\n1\n");
-    const outDir = resolve(FIXTURES, "dedup-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const block = (name: string) => `\`\`\`yaml
-name: ${name}
-title: Dedup Test
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-  rows: auto
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT 1 as value"
-    position: [0, 0, 1, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text" as const, text: block("same") + "\n" + block("same") }],
-        }),
-      },
-    };
-
-    const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
-    expect(files).toHaveLength(2);
-    expect(files[0]).toContain("same.yaml");
-    expect(files[1]).toContain("same-2.yaml");
-  });
-
-  it("skips specs whose name sanitizes to empty string", async () => {
-    const csvPath = writeFixture("emptyname.csv", "x\n1\n");
-    const outDir = resolve(FIXTURES, "emptyname-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const mockResponse = `\`\`\`yaml
-name: "..."
-title: Dots Only
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-  rows: auto
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT 1 as value"
-    position: [0, 0, 1, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text" as const, text: mockResponse }],
-        }),
-      },
-    };
-
-    const files = await suggestDashboards(csvPath, { outDir, client: mockClient as any });
-    expect(files).toHaveLength(0);
-  });
-
-  it("generates multiple specs from a single response", async () => {
-    const csvPath = writeFixture("multi.csv", "name,val\nA,1\nB,2\n");
-    const outDir = resolve(FIXTURES, "multi-out");
-    mkdirSync(outDir, { recursive: true });
-
-    const mockResponse = `\`\`\`yaml
-name: dash-one
-title: Dashboard One
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 3
-  rows: auto
-charts:
-  - id: c1
-    type: kpi
-    query: "SELECT SUM(val) as value FROM multi"
-    position: [0, 0, 1, 1]
-\`\`\`
-
-\`\`\`yaml
-name: dash-two
-title: Dashboard Two
-source: <SOURCE_PLACEHOLDER>
-layout:
-  columns: 2
-  rows: auto
-charts:
-  - id: c1
-    type: bar
-    query: "SELECT name, val FROM multi"
-    x: name
-    y: val
-    position: [0, 0, 2, 1]
-\`\`\``;
-
-    const mockClient = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text" as const, text: mockResponse }],
-        }),
-      },
-    };
-
-    const files = await suggestDashboards(csvPath, {
-      outDir,
-      client: mockClient as any,
-    });
-
-    expect(files).toHaveLength(2);
-    expect(files[0]).toContain("dash-one.yaml");
-    expect(files[1]).toContain("dash-two.yaml");
   });
 });
 

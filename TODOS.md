@@ -1,5 +1,23 @@
 # TODOS
 
+## Deferred (from /autoplan review 2026-03-26)
+
+### `dashcli data.csv` — One-command-to-dashboard
+Auto-suggest + auto-serve in one command. `dashcli data.csv` opens a browser with a heuristic-generated dashboard. The suggest-then-serve pipeline becomes an internal implementation detail. Requires stdin support for serve.
+**Source:** CEO subagent finding #1 — "the value is a visible dashboard, not a YAML spec"
+
+### Template-based suggest
+Ship 5-10 hand-crafted YAML templates for common data shapes (time-series, event log, transactions). Use profiler to select best-fit template and fill in column names. Higher quality than generic layout algorithm.
+**Source:** CEO subagent finding #4b
+
+### Stdin support for `dashcli serve -`
+Enable piping suggest output directly to serve. Required for `dashcli suggest data.csv | dashcli serve -` composability.
+**Source:** Plan Open Question #1
+
+### Competitive landscape analysis
+Add Evidence, Marimo, Observable Framework to competitive analysis. Identify what dashcli does that they cannot (agent-first design, MCP integration).
+**Source:** CEO subagent finding #5b
+
 ## Completed
 
 ### `dashcli init` — Zero-config project scaffolding
@@ -29,10 +47,22 @@ Add area, stacked_bar, heatmap, funnel chart types and multi_select, range, text
 Highest-impact step for dashboard expressiveness — all additive, existing specs unaffected.
 **Completed:** v0.1.3.0 (2026-03-25) — 4 chart types, 3 filter types, 57 new tests
 
+### First-class `custom` chart type — delete legacy types
+Consolidate 12 chart types to `custom | kpi | table`. Single `renderEChartsOption()` replaces 8 legacy renderers. Adds ECharts theme, data binding tokens, column-not-found warnings, and ResizeObserver lifecycle management.
+**Completed:** v0.1.4.0 (2026-03-26) — net-negative complexity, single rendering path
+
 ### P0+P1: Agent-first CLI output + read/diff commands
 `--json` flag on all commands, `dashcli read`, `dashcli diff`, JSON Schema publication,
 structured error codes, chart ID uniqueness, CSV type inference fix, file size check.
 **Completed:** v0.2.0 (2026-03-24)
+
+## Deferred (from /design-review 2026-03-26)
+
+### Tablet breakpoint (768-1024px)
+Add intermediate 2-column grid layout for tablet viewports. Currently jumps from 3-column to 1-column at 768px. Would improve readability on iPad-class devices. DESIGN.md defines only 2 breakpoints — needs design decision.
+
+### Document warning banner and ECharts secondary colors in DESIGN.md
+Warning banner uses amber (#fef3c7/#92400e) not in the palette. ECharts secondary colors (#60a5fa, #93c5fd) used for multi-series charts are undocumented. Both work visually but should be formalized.
 
 ## Backlog
 

@@ -3,7 +3,8 @@
 import { resolve } from "path";
 import { startServer } from "./server";
 import { exportDashboard } from "./export";
-import { suggestDashboards } from "./suggest";
+import { suggest, suggestAI } from "./suggest";
+import { profileDataSource } from "./profiler";
 import { readSpec, formatReadText } from "./read";
 import { diffSpecs, formatDiffText } from "./diff";
 import { existsSync, mkdirSync, copyFileSync, readFileSync, writeFileSync } from "fs";
@@ -46,13 +47,15 @@ function usage() {
     dashcli create [name]        Create a sample dashboard
     dashcli serve <spec>         Serve a dashboard in the browser
     dashcli export <spec>        Export a self-contained HTML file
-    dashcli suggest <source>     Generate dashboard specs from a data file
+    dashcli suggest <source>     Generate a dashboard spec from a data file
+    dashcli profile <source>     Profile a data source (JSON output)
     dashcli read <spec>          Read a spec and output a structured summary
     dashcli diff <specA> <specB> Compare two specs and output a changelog
 
   Options:
     --port <n>                   Port for web viewer (default: 3838)
-    --out <dir>                  Output directory for export/suggest (default: source dir)
+    --out <dir>                  Output directory for export (default: source dir)
+    --ai                         Use LLM for suggest (requires ANTHROPIC_API_KEY)
     --json                       Output machine-readable JSON envelope
     --format <text|json>         Output format (default: text, --json implies json)
 
@@ -60,7 +63,9 @@ function usage() {
     dashcli create my-dashboard
     dashcli serve dashboards/my-dashboard.yaml
     dashcli export dashboards/my-dashboard.yaml --out dist/
-    dashcli suggest data/sales.csv --out dashboards/
+    dashcli suggest data/sales.csv
+    dashcli suggest data/sales.csv --ai
+    dashcli profile data/sales.csv
     dashcli read dashboards/my-dashboard.yaml
     dashcli read dashboards/my-dashboard.yaml --json
     dashcli diff dashboards/v1.yaml dashboards/v2.yaml --json
@@ -81,6 +86,8 @@ try {
     runExport(args, flags);
   } else if (command === "suggest") {
     runSuggest(args, flags);
+  } else if (command === "profile") {
+    runProfile(args, flags);
   } else if (command === "read") {
     runRead(args, flags);
   } else if (command === "diff") {
@@ -209,7 +216,7 @@ function runSuggest(args: string[], flags: GlobalFlags) {
   if (!sourcePath) {
     if (flags.json) outputJson(failure("Provide a path to a data file (CSV or JSON).", "RUNTIME_ERROR"), 1);
     console.error("Error: Provide a path to a data file (CSV or JSON).");
-    console.error("  Usage: dashcli suggest <source> [--out dir]");
+    console.error("  Usage: dashcli suggest <source> [--ai]");
     process.exit(1);
   }
 
@@ -220,38 +227,70 @@ function runSuggest(args: string[], flags: GlobalFlags) {
     process.exit(1);
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    if (flags.json) outputJson(failure("ANTHROPIC_API_KEY environment variable is required.", "RUNTIME_ERROR"), 1);
-    console.error("Error: ANTHROPIC_API_KEY environment variable is required.");
-    console.error("  Set it with: export ANTHROPIC_API_KEY=sk-ant-...");
-    process.exit(1);
-  }
+  const useAI = args.includes("--ai");
 
-  const outFlag = args.indexOf("--out");
-  if (outFlag !== -1 && !args[outFlag + 1]) {
-    if (flags.json) outputJson(failure("--out requires a directory argument.", "RUNTIME_ERROR"), 1);
-    console.error("Error: --out requires a directory argument.");
-    process.exit(1);
-  }
-  const outDir = outFlag !== -1 ? resolve(args[outFlag + 1]) : undefined;
+  if (useAI) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      if (flags.json) outputJson(failure("ANTHROPIC_API_KEY environment variable is required for --ai mode.", "RUNTIME_ERROR"), 1);
+      console.error("Error: ANTHROPIC_API_KEY environment variable is required for --ai mode.");
+      console.error("  Set it with: export ANTHROPIC_API_KEY=sk-ant-...");
+      console.error("  Or omit --ai for the heuristic mode (no API key needed).");
+      process.exit(1);
+    }
 
-  log(flags, `\n  Analyzing ${sourcePath}...`);
-  suggestDashboards(resolved, { outDir })
-    .then((files) => {
-      if (files.length === 0) {
-        if (flags.json) outputJson(failure("No valid dashboard specs were generated.", "RUNTIME_ERROR"), 1);
-        console.error("\n  No valid dashboard specs were generated.");
-        process.exit(1);
-      }
+    console.error(`  Analyzing ${sourcePath} with LLM...`);
+    suggestAI(resolved)
+      .then((result) => {
+        if (flags.json) {
+          const specCount = result.split("\n---\n").length;
+          outputJson(success({ yaml: result, specCount }));
+        }
+        process.stdout.write(result);
+        const specCount = result.split("\n---\n").length;
+        console.error(`  Generated ${specCount} spec(s). Pipe to a file: dashcli suggest ${sourcePath} --ai > spec.yaml`);
+      })
+      .catch((err: Error) => {
+        handleError(err);
+      });
+  } else {
+    try {
+      const result = suggest(resolved);
       if (flags.json) {
-        outputJson(success({ files }));
+        outputJson(success({ yaml: result }));
       }
-      console.log(`\n  Generated ${files.length} dashboard spec(s).`);
-      console.log(`  Try: dashcli serve ${files[0]}\n`);
-    })
-    .catch((err) => {
+      process.stdout.write(result);
+      console.error(`  Generated 1 spec. Try: dashcli suggest ${sourcePath} > spec.yaml && dashcli serve spec.yaml`);
+    } catch (err: unknown) {
       handleError(err);
-    });
+    }
+  }
+}
+
+function runProfile(args: string[], flags: GlobalFlags) {
+  const sourcePath = args[1];
+  if (!sourcePath) {
+    if (flags.json) outputJson(failure("Provide a path to a data file (CSV or JSON).", "RUNTIME_ERROR"), 1);
+    console.error("Error: Provide a path to a data file (CSV or JSON).");
+    console.error("  Usage: dashcli profile <source>");
+    process.exit(1);
+  }
+
+  const resolved = resolve(sourcePath);
+  if (!existsSync(resolved)) {
+    if (flags.json) outputJson(failure(`File not found: ${sourcePath}`, "FILE_NOT_FOUND"), 1);
+    console.error(`Error: File not found: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  try {
+    const profile = profileDataSource(resolved);
+    if (flags.json) {
+      outputJson(success(profile));
+    }
+    process.stdout.write(JSON.stringify(profile, null, 2) + "\n");
+  } catch (err: unknown) {
+    handleError(err);
+  }
 }
 
 function runRead(args: string[], flags: GlobalFlags) {

@@ -17,26 +17,15 @@ export const FilterSpec = z.object({
 
 export const ChartSpec = z.object({
   id: z.string(),
-  type: z.enum(["bar", "line", "kpi", "table", "pie", "scatter", "gauge", "area", "stacked_bar", "heatmap", "funnel"]),
+  type: z.enum(["custom", "kpi", "table"]),
   query: z.string(),
   position: Position,
-  x: z.string().optional(),
-  y: z.string().optional(),
   label: z.string().optional(),
   format: z.enum(["currency", "number", "percent"]).optional(),
-  min: z.number().optional(),
-  max: z.number().optional(),
-  group: z.string().optional(),
-  value: z.string().optional(),
+  option: z.record(z.string(), z.unknown()).optional(),
 }).refine(
-  (c) => !["pie", "scatter", "bar", "line", "area", "stacked_bar", "heatmap", "funnel"].includes(c.type) || (c.x != null && c.y != null),
-  { message: "x and y are required for pie, scatter, bar, line, area, stacked_bar, heatmap, and funnel charts" },
-).refine(
-  (c) => c.type !== "stacked_bar" || c.group != null,
-  { message: "group is required for stacked_bar charts" },
-).refine(
-  (c) => c.type !== "heatmap" || c.value != null,
-  { message: "value is required for heatmap charts" },
+  (c) => c.type !== "custom" || c.option != null,
+  { message: "option is required for custom charts" },
 );
 
 export const LayoutSpec = z.object({

@@ -2,6 +2,53 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.5.0] - 2026-03-26
+
+### Added
+- Heuristic `dashcli suggest` — zero-config default that generates a dashboard spec from any CSV/JSON without an API key, under 100ms
+- `dashcli profile` command — outputs column classification as JSON for agent composability
+- `--ai` flag for `dashcli suggest` — opt-in to LLM-powered suggest (requires `ANTHROPIC_API_KEY`)
+- Column profiler: classifies columns as date/measure/dimension with ID guards, cardinality analysis, and null column exclusion
+- Label humanization: chart titles derived from column names (`total_revenue` → `Total Revenue`)
+- KPI format detection: currency/percent/number inferred from column name patterns
+- 35 new tests covering profiler, heuristic suggest, CLI integration, and determinism
+
+### Changed
+- `dashcli suggest` no longer requires `ANTHROPIC_API_KEY` by default — heuristic mode is the new default
+- `suggestDashboards()` renamed to `suggestAI()` — returns YAML string to stdout instead of writing files
+- `--out` flag removed from suggest (both modes output to stdout)
+- CSV type inference upgraded from single-row to multi-row sampling (up to 10 non-empty values per column)
+- `escId()` and `deriveTableName()` consolidated into shared `src/utils.ts` — removed 4 duplicate copies
+
+## [0.1.4.0] - 2026-03-26
+
+### Changed
+- Chart types consolidated to `custom | kpi | table` — single `renderEChartsOption()` replaces 8 legacy per-type renderers
+- `custom` type accepts raw ECharts `option` object with data binding tokens (`$rows`, `$rows.column`, `$row0.column`, `$distinct.column`)
+- `dashcli suggest` system prompt updated to generate `custom` charts with dataset/encode patterns and theme documentation
+- `max_tokens` increased from 4096 to 8192 for richer custom chart output
+- All sample dashboards rewritten to use `custom | kpi | table` types
+
+### Added
+- ECharts theme registration (`dashcli` theme) with design system colors, grid defaults, and per-series-type styling
+- Column-not-found warning: visible amber banner on chart card + console.warn when data binding references a missing column
+- Empty data guard for custom charts: shows "No data" message instead of blank axes
+- ResizeObserver lifecycle management (`chartObservers` map) — observers cleaned up on instance dispose
+- CSS custom properties `--border-light` and `--hover` replacing hardcoded colors
+- `.dashcli-column-warning` and `.table-overflow` CSS classes replacing inline styles
+- `text-wrap: balance` on dashboard title, `transition` on table row hover
+
+### Fixed
+- Filter input padding aligned to 4px grid (10px → 12px)
+- Header/filter-bar background extends full-width on ultra-wide screens
+- Warning banner and table overflow text use CSS classes instead of inline styles
+
+### Removed
+- 8 legacy per-type rendering functions (`renderEChart`, `renderPieChart`, `renderScatterChart`, `renderGaugeChart`, `renderStackedBarChart`, `renderHeatmapChart`, `renderFunnelChart`, `renderCustomChart`)
+- Legacy chart type enum values (`bar`, `line`, `pie`, `scatter`, `gauge`, `area`, `stacked_bar`, `heatmap`, `funnel`)
+- Legacy fields `x`, `y`, `group`, `value`, `min`, `max` from ChartSpec schema
+- Legacy type-specific refinements (x/y required, group required for stacked_bar, value required for heatmap)
+
 ## [0.2.0] - 2026-03-24
 
 ### Added
