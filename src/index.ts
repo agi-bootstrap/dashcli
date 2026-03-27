@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 
-import { resolve } from "path";
-import { startServer } from "./server";
+import { resolve, basename } from "path";
+import { startServer, startServerFromSpec } from "./server";
 import { exportDashboard } from "./export";
-import { suggest, suggestAI } from "./suggest";
+import { suggest, suggestAI, generateSpec } from "./suggest";
 import { profileDataSource } from "./profiler";
 import { readSpec, formatReadText } from "./read";
 import { diffSpecs, formatDiffText } from "./diff";
@@ -17,6 +17,7 @@ import {
   log,
   type GlobalFlags,
 } from "./cli-utils";
+import { spawn } from "child_process";
 
 const rawArgs = process.argv.slice(2);
 const flags = parseGlobalFlags(rawArgs);
@@ -44,6 +45,7 @@ function usage() {
   dashcli — agent-native BI dashboards
 
   Usage:
+    dashcli <data>               One command to dashboard (suggest + serve + open)
     dashcli create [name]        Create a sample dashboard
     dashcli serve <spec>         Serve a dashboard in the browser
     dashcli export <spec>        Export a self-contained HTML file
@@ -60,6 +62,7 @@ function usage() {
     --format <text|json>         Output format (default: text, --json implies json)
 
   Examples:
+    dashcli data/sales.csv                         # instant dashboard in browser
     dashcli create my-dashboard
     dashcli serve dashboards/my-dashboard.yaml
     dashcli export dashboards/my-dashboard.yaml --out dist/
@@ -92,6 +95,8 @@ try {
     runRead(args, flags);
   } else if (command === "diff") {
     runDiff(args, flags);
+  } else if (command === "dashboard" || /\.(csv|json)$/i.test(command)) {
+    runDashboard(args, flags);
   } else {
     if (flags.json) {
       outputJson(failure(`Unknown command: ${command}`, "UNKNOWN_COMMAND"), 1);
@@ -354,4 +359,86 @@ function runDiff(args: string[], flags: GlobalFlags) {
   console.log("");
   console.log(formatDiffText(diff));
   console.log("");
+}
+
+function runDashboard(args: string[], flags: GlobalFlags) {
+  const sourcePath = command === "dashboard" ? args[1] : command;
+  if (!sourcePath) {
+    if (flags.json) outputJson(failure("Provide a path to a data file (CSV or JSON).", "RUNTIME_ERROR"), 1);
+    console.error("Error: Provide a path to a data file (CSV or JSON).");
+    console.error("  Usage: dashcli <data.csv>");
+    process.exit(1);
+  }
+
+  const resolved = resolve(sourcePath);
+  if (!existsSync(resolved)) {
+    if (flags.json) outputJson(failure(`File not found: ${sourcePath}`, "FILE_NOT_FOUND"), 1);
+    console.error(`Error: File not found: ${sourcePath}`);
+    process.exit(1);
+  }
+
+  const ext = resolved.match(/\.[^.]+$/)?.[0]?.toLowerCase() ?? "";
+  if (ext !== ".csv" && ext !== ".json") {
+    if (flags.json) outputJson(failure(`Unsupported file type "${ext}". Use .csv or .json.`, "RUNTIME_ERROR"), 1);
+    console.error(`Error: Unsupported file type "${ext}". Use .csv or .json.`);
+    process.exit(1);
+  }
+
+  const portFlag = args.indexOf("--port");
+  let port = 3838;
+  if (portFlag !== -1) {
+    const raw = args[portFlag + 1];
+    port = Number(raw);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      if (flags.json) outputJson(failure(`Invalid port "${raw ?? ""}". Must be an integer between 1 and 65535.`, "RUNTIME_ERROR"), 1);
+      console.error(`Error: Invalid port "${raw ?? ""}". Must be an integer between 1 and 65535.`);
+      process.exit(1);
+    }
+  }
+
+  // Kill any previous dashcli server on this port
+  try {
+    const check = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`]);
+    const pids = check.stdout.toString().trim();
+    if (pids) {
+      for (const pid of pids.split("\n")) {
+        const n = Number(pid);
+        if (n && n !== process.pid) {
+          try { process.kill(n, "SIGTERM"); } catch {}
+        }
+      }
+      Bun.sleepSync(200);
+    }
+  } catch {
+    // lsof not available or no process found
+  }
+
+  const profile = profileDataSource(resolved);
+  const spec = generateSpec(profile, basename(resolved));
+  const server = startServerFromSpec(spec, resolved, port);
+  const url = `http://localhost:${server.port}/d/${spec.name}`;
+
+  if (flags.json) {
+    outputJson(success({ url, name: spec.name, charts: spec.charts.length, filters: spec.filters.length }));
+  }
+
+  // Open browser
+  const platform = process.platform;
+  if (platform === "darwin") {
+    spawn("open", [url], { stdio: "ignore", detached: true }).unref();
+  } else if (platform === "linux") {
+    spawn("xdg-open", [url], { stdio: "ignore", detached: true }).unref();
+  } else if (platform === "win32") {
+    spawn("cmd", ["/c", "start", url], { stdio: "ignore", detached: true }).unref();
+  }
+
+  // Cleanup on exit
+  process.on("SIGINT", () => {
+    server.stop();
+    process.exit(0);
+  });
+  process.on("SIGTERM", () => {
+    server.stop();
+    process.exit(0);
+  });
 }
