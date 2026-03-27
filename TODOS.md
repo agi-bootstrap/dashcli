@@ -18,6 +18,20 @@ Enable piping suggest output directly to serve. Required for `dashcli suggest da
 Add Evidence, Marimo, Observable Framework to competitive analysis. Identify what dashcli does that they cannot (agent-first design, MCP integration).
 **Source:** CEO subagent finding #5b
 
+## Deferred (from /autoplan review 2026-03-27 — strategic analysis)
+
+### MCP server interface for dashcli
+Expose dashcli as an MCP tool so AI agents can call suggest/serve/profile natively without shell-out. The plan's own agent-first framing points to MCP as the primary interface, CLI as wrapper. This is the architecture that makes "agent-native BI" real.
+**Source:** CEO subagent finding #6 — "evaluate MCP server as primary product surface"
+
+### Claude Code artifacts competitive contingency
+Claude Code already renders HTML artifacts. If Anthropic ships native "generate dashboard from CSV" capability, dashcli's reason to exist narrows. Define what dashcli does that raw HTML artifacts cannot: persistent specs, live reload, filter interactivity, multi-chart layouts, YAML diffing.
+**Source:** CEO subagent finding #2 (Critical) — closest competitive risk unanalyzed
+
+### Library API refactor (extract from CLI)
+Extract orchestration logic from `index.ts` into exported functions that throw errors instead of calling `process.exit()`. The CLI entry point catches and formats them. Enables slash commands and MCP tools to import dashcli as a library.
+**Source:** Eng subagent finding #3
+
 ## Completed
 
 ### `dashcli init` — Zero-config project scaffolding
