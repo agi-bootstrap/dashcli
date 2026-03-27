@@ -2,6 +2,24 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.5.0] - 2026-03-26
+
+### Added
+- Heuristic `dashcli suggest` — zero-config default that generates a dashboard spec from any CSV/JSON without an API key, under 100ms
+- `dashcli profile` command — outputs column classification as JSON for agent composability
+- `--ai` flag for `dashcli suggest` — opt-in to LLM-powered suggest (requires `ANTHROPIC_API_KEY`)
+- Column profiler: classifies columns as date/measure/dimension with ID guards, cardinality analysis, and null column exclusion
+- Label humanization: chart titles derived from column names (`total_revenue` → `Total Revenue`)
+- KPI format detection: currency/percent/number inferred from column name patterns
+- 35 new tests covering profiler, heuristic suggest, CLI integration, and determinism
+
+### Changed
+- `dashcli suggest` no longer requires `ANTHROPIC_API_KEY` by default — heuristic mode is the new default
+- `suggestDashboards()` renamed to `suggestAI()` — returns YAML string to stdout instead of writing files
+- `--out` flag removed from suggest (both modes output to stdout)
+- CSV type inference upgraded from single-row to multi-row sampling (up to 10 non-empty values per column)
+- `escId()` and `deriveTableName()` consolidated into shared `src/utils.ts` — removed 4 duplicate copies
+
 ## [0.1.4.0] - 2026-03-26
 
 ### Changed

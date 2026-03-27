@@ -1,5 +1,6 @@
 import { Database } from "bun:sqlite";
 import { readFileSync } from "fs";
+import { escId, deriveTableName } from "./utils";
 
 export function loadCsv(csvPath: string): Database {
   const text = readFileSync(csvPath, "utf-8");
@@ -9,16 +10,21 @@ export function loadCsv(csvPath: string): Database {
   const headers = parseCsvLine(lines[0]);
   const rows = lines.slice(1).map(parseCsvLine);
 
-  // Derive table name from filename (sales.csv → sales)
   const tableName = deriveTableName(csvPath);
 
   const db = new Database(":memory:");
 
-  // Infer column types from first data row
+  // Infer column types by sampling up to 10 non-empty values per column
+  const colTypes = headers.map((_h, i) => {
+    for (let r = 0; r < Math.min(rows.length, 10); r++) {
+      const val = rows[r]?.[i] ?? "";
+      if (val !== "") return inferSqliteType(val);
+    }
+    return "TEXT"; // all sampled values empty
+  });
+
   const colDefs = headers.map((h, i) => {
-    const sample = rows[0]?.[i] ?? "";
-    const type = inferSqliteType(sample);
-    return `"${escId(h)}" ${type}`;
+    return `"${escId(h)}" ${colTypes[i]}`;
   });
 
   db.run(`CREATE TABLE "${tableName}" (${colDefs.join(", ")})`);
@@ -26,9 +32,9 @@ export function loadCsv(csvPath: string): Database {
   const placeholders = headers.map(() => "?").join(", ");
   const insert = db.prepare(`INSERT INTO "${tableName}" VALUES (${placeholders})`);
 
-  const insertAll = db.transaction((rows: string[][]) => {
-    for (const row of rows) {
-      const values = row.map((val, i) => coerce(val, headers[i], rows[0]?.[i] ?? ""));
+  const insertAll = db.transaction((dataRows: string[][]) => {
+    for (const row of dataRows) {
+      const values = row.map((val, i) => coerceByType(val, colTypes[i]));
       insert.run(...values);
     }
   });
@@ -70,20 +76,12 @@ function inferSqliteType(sample: string): string {
   return "TEXT";
 }
 
-function coerce(val: string, _header: string, sample: string): string | number | null {
+function coerceByType(val: string, type: string): string | number | null {
   if (val === "") return null;
-  const type = inferSqliteType(sample);
   if (type === "INTEGER") { const n = parseInt(val, 10); return isNaN(n) ? val : n; }
   if (type === "REAL") { const n = parseFloat(val); return isNaN(n) ? val : n; }
   return val;
 }
 
-/** Derive a SQL-safe table name from a CSV file path */
-export function deriveTableName(csvPath: string): string {
-  return escId(csvPath.split("/").pop()!.replace(/\.csv$/i, ""));
-}
-
-/** Escape a SQL identifier by doubling internal quotes */
-function escId(s: string): string {
-  return s.replace(/"/g, '""');
-}
+// Re-export for backward compatibility with tests
+export { deriveTableName } from "./utils";
