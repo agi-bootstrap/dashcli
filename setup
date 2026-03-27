@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# dashcli setup — validates dependencies and installs packages
+
+# Check for Bun
+if ! command -v bun &>/dev/null; then
+  echo "ERROR: Bun is required but not installed."
+  echo "Install it: curl -fsSL https://bun.sh/install | bash"
+  exit 1
+fi
+
+BUN_VERSION=$(bun --version 2>/dev/null || echo "0.0.0")
+BUN_MAJOR=$(echo "$BUN_VERSION" | cut -d. -f1)
+if [ "$BUN_MAJOR" -lt 1 ] 2>/dev/null; then
+  echo "ERROR: Bun v1.0+ required (found v$BUN_VERSION)"
+  exit 1
+fi
+
+# Install dependencies
+cd "$(dirname "$0")"
+bun install
+
+echo ""
+echo "dashcli ready."
+echo "  dashcli suggest <file>   Generate a dashboard spec"
+echo "  dashcli serve <spec>     Live-reloading dashboard"
+echo "  dashcli export <spec>    Standalone HTML"

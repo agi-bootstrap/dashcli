@@ -2,6 +2,18 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.5.1] - 2026-03-27
+
+### Added
+- Setup script (`./setup`) — validates Bun v1.0+ and runs `bun install`
+- Claude Code install prompt — paste one prompt to install dashcli and configure CLAUDE.md
+- Manual install instructions with shell alias for non-Claude-Code users
+
+### Changed
+- README rewritten with gstack-style distribution model — agent-first install via Claude Code
+- Updated command documentation to reflect heuristic suggest default and `--ai` flag
+- Added `profile` command to README
+
 ## [0.1.5.0] - 2026-03-26
 
 ### Added
