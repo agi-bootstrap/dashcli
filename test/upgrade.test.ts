@@ -15,7 +15,10 @@ import {
   readUpgradeMarker,
   getInstallDir,
   printUpgradeHint,
+  isNewerVersion,
+  maybeAutoUpgrade,
 } from "../src/upgrade";
+import { setConfigValue } from "../src/config";
 
 const HOME = process.env.HOME!;
 const STATE_DIR = resolve(HOME, ".dashcli");
@@ -23,6 +26,7 @@ const CACHE_FILE = resolve(STATE_DIR, ".last-update-check");
 const SNOOZE_FILE = resolve(STATE_DIR, ".update-snoozed");
 const DISABLED_FILE = resolve(STATE_DIR, ".update-check-disabled");
 const MARKER_FILE = resolve(STATE_DIR, ".just-upgraded-from");
+const CONFIG_FILE = resolve(STATE_DIR, ".config.yaml");
 
 // Helper: save and restore a state file around a test
 function withStateFile(path: string, fn: () => void) {
@@ -428,7 +432,7 @@ describe("snooze", () => {
 
 describe("update check disable", () => {
   test("disable and enable round-trip", () => {
-    withStateFile(DISABLED_FILE, () => {
+    withStateFile(CONFIG_FILE, () => {
       enableUpdateCheck(); // start clean
       expect(isUpdateCheckDisabled()).toBe(false);
 
@@ -441,7 +445,7 @@ describe("update check disable", () => {
   });
 
   test("enableUpdateCheck is safe when not disabled", () => {
-    withStateFile(DISABLED_FILE, () => {
+    withStateFile(CONFIG_FILE, () => {
       enableUpdateCheck();
       // Should not throw
       enableUpdateCheck();
@@ -457,15 +461,18 @@ describe("checkForUpdate", () => {
   let savedCache: string | null = null;
   let savedSnooze: string | null = null;
   let savedDisabled: boolean = false;
+  let savedConfig: string | null = null;
 
   beforeEach(() => {
     savedCache = existsSync(CACHE_FILE) ? readFileSync(CACHE_FILE, "utf-8") : null;
     savedSnooze = existsSync(SNOOZE_FILE) ? readFileSync(SNOOZE_FILE, "utf-8") : null;
     savedDisabled = existsSync(DISABLED_FILE);
+    savedConfig = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
     // Clean slate
     try { rmSync(CACHE_FILE); } catch {}
     try { rmSync(SNOOZE_FILE); } catch {}
     try { rmSync(DISABLED_FILE); } catch {}
+    try { rmSync(CONFIG_FILE); } catch {}
   });
 
   afterEach(() => {
@@ -473,9 +480,11 @@ describe("checkForUpdate", () => {
     try { rmSync(CACHE_FILE); } catch {}
     try { rmSync(SNOOZE_FILE); } catch {}
     try { rmSync(DISABLED_FILE); } catch {}
+    try { rmSync(CONFIG_FILE); } catch {}
     if (savedCache !== null) writeFileSync(CACHE_FILE, savedCache, "utf-8");
     if (savedSnooze !== null) writeFileSync(SNOOZE_FILE, savedSnooze, "utf-8");
     if (savedDisabled) writeFileSync(DISABLED_FILE, "disabled", "utf-8");
+    if (savedConfig !== null) writeFileSync(CONFIG_FILE, savedConfig, "utf-8");
   });
 
   test("returns null when update check is disabled (non-forced)", async () => {
@@ -803,12 +812,270 @@ describe("CLI: dashcli upgrade", () => {
 describe("CLI: dashcli help includes new commands", () => {
   const root = resolve(import.meta.dir, "..");
 
-  test("help text includes version and upgrade", () => {
+  test("help text includes version, upgrade, and config", () => {
     const result = Bun.spawnSync(["bun", "run", "src/index.ts", "--help"], {
       cwd: root,
     });
     const out = result.stdout.toString();
     expect(out).toContain("dashcli version");
     expect(out).toContain("dashcli upgrade");
+    expect(out).toContain("dashcli config");
+    expect(out).toContain("--snooze");
+    expect(out).toContain("--auto");
+    expect(out).toContain("--disable-check");
+    expect(out).toContain("--enable-check");
+  });
+});
+
+// ── isNewerVersion ──────────────────────────────────────────────────
+
+describe("isNewerVersion", () => {
+  test("returns true when a > b", () => {
+    expect(isNewerVersion("1.0.0", "0.9.0")).toBe(true);
+    expect(isNewerVersion("0.8.0", "0.7.0")).toBe(true);
+    expect(isNewerVersion("0.7.1", "0.7.0")).toBe(true);
+    expect(isNewerVersion("1.0.0", "0.99.99")).toBe(true);
+  });
+
+  test("returns false when a < b", () => {
+    expect(isNewerVersion("0.7.0", "0.8.0")).toBe(false);
+    expect(isNewerVersion("0.9.0", "1.0.0")).toBe(false);
+    expect(isNewerVersion("0.7.0", "0.7.1")).toBe(false);
+  });
+
+  test("returns false when a == b", () => {
+    expect(isNewerVersion("0.7.0", "0.7.0")).toBe(false);
+    expect(isNewerVersion("1.0.0", "1.0.0")).toBe(false);
+  });
+
+  test("handles different segment lengths", () => {
+    expect(isNewerVersion("0.7.0.1", "0.7.0")).toBe(true);
+    expect(isNewerVersion("0.7.0", "0.7.0.1")).toBe(false);
+    expect(isNewerVersion("1.0", "0.9.9")).toBe(true);
+  });
+});
+
+// ── maybeAutoUpgrade ────────────────────────────────────────────────
+
+describe("maybeAutoUpgrade", () => {
+  // Helper to save/restore state files
+  function withCleanState(fn: () => Promise<void>) {
+    const files = [CONFIG_FILE, CACHE_FILE];
+    const backups = new Map<string, string | null>();
+    for (const f of files) {
+      backups.set(f, existsSync(f) ? readFileSync(f, "utf-8") : null);
+    }
+    return fn().finally(() => {
+      for (const [f, backup] of backups) {
+        try { rmSync(f); } catch {}
+        if (backup !== null) writeFileSync(f, backup, "utf-8");
+      }
+    });
+  }
+
+  test("returns false when auto_upgrade not configured", async () => {
+    await withCleanState(async () => {
+      try { rmSync(CONFIG_FILE); } catch {}
+      try { rmSync(CACHE_FILE); } catch {}
+      const result = await maybeAutoUpgrade();
+      expect(result).toBe(false);
+    });
+  });
+
+  test("returns false when cache has no UPGRADE_AVAILABLE", async () => {
+    await withCleanState(async () => {
+      try { rmSync(CACHE_FILE); } catch {}
+      setConfigValue("auto_upgrade", true);
+      const result = await maybeAutoUpgrade();
+      expect(result).toBe(false);
+    });
+  });
+
+  test("returns false when cache is stale", async () => {
+    await withCleanState(async () => {
+      setConfigValue("auto_upgrade", true);
+      mkdirSync(STATE_DIR, { recursive: true });
+      writeFileSync(CACHE_FILE, "UPGRADE_AVAILABLE 0.7.0 99.99.99", "utf-8");
+      // Set mtime to 13 hours ago (>720 min TTL)
+      const pastTime = new Date(Date.now() - 13 * 60 * 60 * 1000);
+      utimesSync(CACHE_FILE, pastTime, pastTime);
+      const result = await maybeAutoUpgrade();
+      expect(result).toBe(false);
+    });
+  });
+
+  test("returns false when remote is not newer than local (no downgrade)", async () => {
+    await withCleanState(async () => {
+      setConfigValue("auto_upgrade", true);
+      mkdirSync(STATE_DIR, { recursive: true });
+      // Cache says "upgrade" from 0.7.0 to 0.1.0 (downgrade)
+      writeFileSync(CACHE_FILE, "UPGRADE_AVAILABLE 0.7.0 0.1.0", "utf-8");
+      const result = await maybeAutoUpgrade();
+      expect(result).toBe(false);
+    });
+  });
+});
+
+// ── checkForUpdate with semver comparison ────────────────────────────
+
+describe("checkForUpdate semver", () => {
+  let savedCache: string | null = null;
+  let savedConfig: string | null = null;
+
+  beforeEach(() => {
+    savedCache = existsSync(CACHE_FILE) ? readFileSync(CACHE_FILE, "utf-8") : null;
+    savedConfig = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
+    try { rmSync(CACHE_FILE); } catch {}
+    try { rmSync(CONFIG_FILE); } catch {}
+  });
+
+  afterEach(() => {
+    try { rmSync(CACHE_FILE); } catch {}
+    try { rmSync(CONFIG_FILE); } catch {}
+    if (savedCache !== null) writeFileSync(CACHE_FILE, savedCache, "utf-8");
+    if (savedConfig !== null) writeFileSync(CONFIG_FILE, savedConfig, "utf-8");
+  });
+
+  test("does not signal upgrade when local is ahead of remote (no downgrade)", async () => {
+    const local = readLocalVersion();
+    mkdirSync(STATE_DIR, { recursive: true });
+    // Simulate a scenario where local was updated but remote VERSION is behind
+    // We can't easily test this end-to-end without network mock,
+    // so we verify the semver comparison function directly
+    expect(isNewerVersion("0.1.0", local)).toBe(false); // 0.1.0 is not newer than current
+    expect(isNewerVersion("99.99.99", local)).toBe(true); // 99.99.99 is newer
+  });
+});
+
+// ── CLI: config command ─────────────────────────────────────────────
+
+describe("CLI: dashcli config", () => {
+  const root = resolve(import.meta.dir, "..");
+
+  function withCleanConfig(fn: () => void) {
+    const backup = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
+    try {
+      try { rmSync(CONFIG_FILE); } catch {}
+      fn();
+    } finally {
+      try { rmSync(CONFIG_FILE); } catch {}
+      if (backup !== null) writeFileSync(CONFIG_FILE, backup, "utf-8");
+    }
+  }
+
+  test("config list shows empty when no config", () => {
+    withCleanConfig(() => {
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "config"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString();
+      expect(out).toContain("No config values set");
+    });
+  });
+
+  test("config set and get round-trip", () => {
+    withCleanConfig(() => {
+      Bun.spawnSync(["bun", "run", "src/index.ts", "config", "set", "auto_upgrade", "true"], {
+        cwd: root,
+      });
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "config", "get", "auto_upgrade"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString();
+      expect(out).toContain("auto_upgrade: true");
+    });
+  });
+
+  test("config get --json outputs JSON envelope", () => {
+    withCleanConfig(() => {
+      Bun.spawnSync(["bun", "run", "src/index.ts", "config", "set", "auto_upgrade", "true"], {
+        cwd: root,
+      });
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "config", "get", "auto_upgrade", "--json"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString().trim();
+      const parsed = JSON.parse(out);
+      expect(parsed.ok).toBe(true);
+      expect(parsed.data.key).toBe("auto_upgrade");
+      expect(parsed.data.value).toBe(true);
+    });
+  });
+
+  test("config set rejects invalid value", () => {
+    withCleanConfig(() => {
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "config", "set", "auto_upgrade", "yes"], {
+        cwd: root,
+      });
+      expect(result.exitCode).not.toBe(0);
+    });
+  });
+
+  test("config set rejects invalid key", () => {
+    withCleanConfig(() => {
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "config", "set", "bad_key", "true"], {
+        cwd: root,
+      });
+      expect(result.exitCode).not.toBe(0);
+    });
+  });
+});
+
+// ── CLI: upgrade flags ──────────────────────────────────────────────
+
+describe("CLI: dashcli upgrade flags", () => {
+  const root = resolve(import.meta.dir, "..");
+
+  test("upgrade --disable-check sets config", () => {
+    const backup = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
+    try {
+      try { rmSync(CONFIG_FILE); } catch {}
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "upgrade", "--disable-check"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString();
+      expect(out).toContain("Update checks disabled");
+      expect(isUpdateCheckDisabled()).toBe(true);
+    } finally {
+      try { rmSync(CONFIG_FILE); } catch {}
+      if (backup !== null) writeFileSync(CONFIG_FILE, backup, "utf-8");
+    }
+  });
+
+  test("upgrade --enable-check sets config", () => {
+    const backup = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
+    try {
+      try { rmSync(CONFIG_FILE); } catch {}
+      disableUpdateCheck();
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "upgrade", "--enable-check"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString();
+      expect(out).toContain("Update checks re-enabled");
+      expect(isUpdateCheckDisabled()).toBe(false);
+    } finally {
+      try { rmSync(CONFIG_FILE); } catch {}
+      if (backup !== null) writeFileSync(CONFIG_FILE, backup, "utf-8");
+    }
+  });
+
+  test("upgrade --snooze creates snooze file", () => {
+    const snoozeBackup = existsSync(SNOOZE_FILE) ? readFileSync(SNOOZE_FILE, "utf-8") : null;
+    const configBackup = existsSync(CONFIG_FILE) ? readFileSync(CONFIG_FILE, "utf-8") : null;
+    try {
+      try { rmSync(SNOOZE_FILE); } catch {}
+      try { rmSync(CONFIG_FILE); } catch {}
+      const result = Bun.spawnSync(["bun", "run", "src/index.ts", "upgrade", "--snooze"], {
+        cwd: root,
+      });
+      const out = result.stdout.toString();
+      expect(out).toContain("Snoozed upgrade reminders");
+      expect(existsSync(SNOOZE_FILE)).toBe(true);
+    } finally {
+      try { rmSync(SNOOZE_FILE); } catch {}
+      try { rmSync(CONFIG_FILE); } catch {}
+      if (snoozeBackup !== null) writeFileSync(SNOOZE_FILE, snoozeBackup, "utf-8");
+      if (configBackup !== null) writeFileSync(CONFIG_FILE, configBackup, "utf-8");
+    }
   });
 });

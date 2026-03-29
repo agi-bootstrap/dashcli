@@ -2,7 +2,7 @@
  * dashcli upgrade mechanism — gstack-style version check + self-update.
  *
  * Two install modes:
- *   git:      ~/.dashcli with .git/  → git pull origin main && ./setup
+ *   git:      ~/.dashcli with .git/  → git fetch + git reset --hard origin/main && ./setup
  *   vendored: .dashcli/ without .git → clone to tmp, swap dirs, rm .git, ./setup
  *
  * State stored in ~/.dashcli/ alongside install (dot-prefixed files, gitignored).
@@ -10,6 +10,7 @@
 
 import { resolve, dirname } from "path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, statSync, unlinkSync, renameSync, rmSync } from "fs";
+import { getConfigValue, setConfigValue } from "./config";
 
 // ── Constants ────────────────────────────────────────────────────────
 
@@ -17,7 +18,6 @@ const REMOTE_VERSION_URL = "https://raw.githubusercontent.com/agi-bootstrap/dash
 const STATE_DIR = resolve(process.env.HOME || "~", ".dashcli");
 const CACHE_FILE = resolve(STATE_DIR, ".last-update-check");
 const SNOOZE_FILE = resolve(STATE_DIR, ".update-snoozed");
-const DISABLED_FILE = resolve(STATE_DIR, ".update-check-disabled");
 const MARKER_FILE = resolve(STATE_DIR, ".just-upgraded-from");
 
 /** Cache TTL in minutes. */
@@ -174,16 +174,15 @@ function clearSnooze(): void {
 // ── Disable ──────────────────────────────────────────────────────────
 
 export function isUpdateCheckDisabled(): boolean {
-  return existsSync(DISABLED_FILE);
+  return getConfigValue("update_check") === false;
 }
 
 export function disableUpdateCheck(): void {
-  ensureStateDir();
-  writeFileSync(DISABLED_FILE, "disabled", "utf-8");
+  setConfigValue("update_check", false);
 }
 
 export function enableUpdateCheck(): void {
-  try { unlinkSync(DISABLED_FILE); } catch {}
+  setConfigValue("update_check", true);
 }
 
 // ── Remote fetch ─────────────────────────────────────────────────────
@@ -222,6 +221,9 @@ export async function checkForUpdate(force = false): Promise<UpdateResult | null
       }
       if (cache.status === "UPGRADE_AVAILABLE" && cache.versions[0] === local) {
         const latest = cache.versions[1] ?? local;
+        if (!isNewerVersion(latest, local)) {
+          return { current: local, latest, available: false };
+        }
         if (isSnoozed(latest)) return null;
         return { current: local, latest, available: true };
       }
@@ -235,12 +237,12 @@ export async function checkForUpdate(force = false): Promise<UpdateResult | null
     return null;
   }
 
-  if (local === remote) {
+  if (local === remote || !isNewerVersion(remote, local)) {
     writeCache(`UP_TO_DATE ${local}`);
     return { current: local, latest: remote, available: false };
   }
 
-  // Versions differ — upgrade available
+  // Remote is newer — upgrade available
   writeCache(`UPGRADE_AVAILABLE ${local} ${remote}`);
   if (!force && isSnoozed(remote)) return null;
   return { current: local, latest: remote, available: true };
@@ -278,14 +280,23 @@ export async function upgrade(): Promise<{ oldVersion: string; newVersion: strin
 }
 
 async function upgradeGit(dir: string): Promise<void> {
-  console.log(`  Pulling latest from origin/main...`);
-  const pull = Bun.spawnSync(["git", "pull", "origin", "main"], {
+  console.log(`  Fetching latest from origin/main...`);
+  const fetch = Bun.spawnSync(["git", "fetch", "origin", "main"], {
     cwd: dir,
     stdout: "inherit",
     stderr: "inherit",
   });
-  if (pull.exitCode !== 0) {
-    throw new Error("git pull failed. Check your network connection and try again.");
+  if (fetch.exitCode !== 0) {
+    throw new Error("git fetch failed. Check your network connection and try again.");
+  }
+
+  const reset = Bun.spawnSync(["git", "reset", "--hard", "origin/main"], {
+    cwd: dir,
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  if (reset.exitCode !== 0) {
+    throw new Error("git reset failed. Run the upgrade manually.");
   }
 
   console.log(`  Running setup...`);
@@ -295,7 +306,7 @@ async function upgradeGit(dir: string): Promise<void> {
     stderr: "inherit",
   });
   if (setup.exitCode !== 0) {
-    throw new Error("Setup failed after pull. Run ./setup manually to investigate.");
+    throw new Error("Setup failed after upgrade. Run ./setup manually to investigate.");
   }
 }
 
@@ -358,6 +369,56 @@ async function upgradeVendored(dir: string): Promise<void> {
   }
 }
 
+// ── Semver comparison ───────────────────────────────────────────────
+
+/** Returns true if version a is strictly newer than version b. */
+export function isNewerVersion(a: string, b: string): boolean {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const va = pa[i] ?? 0;
+    const vb = pb[i] ?? 0;
+    if (va > vb) return true;
+    if (va < vb) return false;
+  }
+  return false; // equal
+}
+
+// ── Auto-upgrade ────────────────────────────────────────────────────
+
+/**
+ * Auto-upgrade from cache if configured. Never fetches from network.
+ * Returns true if an upgrade was performed.
+ *
+ * Guards:
+ *   - auto_upgrade config must be true
+ *   - cache must have fresh UPGRADE_AVAILABLE
+ *   - stdout must be a TTY (skip in pipes/CI)
+ */
+export async function maybeAutoUpgrade(): Promise<boolean> {
+  if (getConfigValue("auto_upgrade") !== true) return false;
+  if (!process.stdout.isTTY) return false;
+
+  const cache = readCache();
+  if (!cache || cache.stale || cache.status !== "UPGRADE_AVAILABLE") return false;
+
+  const local = readLocalVersion();
+  if (local === "unknown") return false;
+
+  const latest = cache.versions[1];
+  if (!latest || !isNewerVersion(latest, local)) return false;
+
+  try {
+    const { oldVersion, newVersion } = await upgrade();
+    console.error(`  Auto-upgraded dashcli: v${oldVersion} → v${newVersion}`);
+    return true;
+  } catch (err) {
+    console.error(`  Auto-upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+}
+
 // ── Changelog ────────────────────────────────────────────────────────
 
 /** Extract changelog entries between two versions. Cap at 5000 chars to avoid dumping entire history. */
@@ -396,7 +457,7 @@ export function getChangelogBetween(oldVersion: string, newVersion: string): str
 export function printUpgradeHint(): void {
   checkForUpdate().then((result) => {
     if (result?.available) {
-      console.error(`  dashcli v${result.current} (update available: v${result.latest} — run dashcli upgrade)`);
+      console.error(`  dashcli v${result.current} (update available: v${result.latest} — run dashcli upgrade, or --snooze to defer)`);
     }
   }).catch(() => {
     // Silent failure — never block serve
