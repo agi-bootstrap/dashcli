@@ -4,3 +4,9 @@ dashboards/
 *.db
 .context/
 .gstack/
+
+# Upgrade state files (written by dashcli upgrade)
+.last-update-check
+.update-snoozed
+.update-check-disabled
+.just-upgraded-from
