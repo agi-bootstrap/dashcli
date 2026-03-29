@@ -39,6 +39,22 @@ Then use `bun ~/.dashcli/src/index.ts` as the command, or add an alias:
 alias dashcli='bun ~/.dashcli/src/index.ts'
 ```
 
+## Updating
+
+```bash
+dashcli upgrade
+```
+
+Detects your install type (git clone or vendored), pulls the latest version, runs setup, and shows what changed. Works for both `~/.dashcli` and `.dashcli/` installs.
+
+Check for updates without upgrading:
+
+```bash
+dashcli version --check
+```
+
+`dashcli serve` also shows a non-blocking hint when an update is available.
+
 ## Quick start
 
 ```bash
@@ -95,6 +111,14 @@ Parses a YAML spec and outputs a structured summary: name, title, source, charts
 ### `dashcli diff <specA> <specB>`
 
 Compares two dashboard specs and outputs a structured changelog keyed by chart/filter ID — added, removed, and changed items with field-level detail.
+
+### `dashcli version [--check]`
+
+Prints the current version. Add `--check` to also check for updates against the remote.
+
+### `dashcli upgrade`
+
+Upgrades dashcli to the latest version. Detects git clone vs vendored install, pulls or clones the latest, runs setup, and shows what's new from the changelog.
 
 ### Global flags
 

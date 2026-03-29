@@ -17,6 +17,14 @@ import {
   log,
   type GlobalFlags,
 } from "./cli-utils";
+import {
+  readLocalVersion,
+  readUpgradeMarker,
+  checkForUpdate,
+  upgrade,
+  getChangelogBetween,
+  printUpgradeHint,
+} from "./upgrade";
 import { spawn } from "child_process";
 
 const rawArgs = process.argv.slice(2);
@@ -53,6 +61,8 @@ function usage() {
     dashcli profile <source>     Profile a data source (JSON output)
     dashcli read <spec>          Read a spec and output a structured summary
     dashcli diff <specA> <specB> Compare two specs and output a changelog
+    dashcli version              Show version (add --check to check for updates)
+    dashcli upgrade              Upgrade dashcli to the latest version
 
   Options:
     --port <n>                   Port for web viewer (default: 3838)
@@ -95,6 +105,10 @@ try {
     runRead(args, flags);
   } else if (command === "diff") {
     runDiff(args, flags);
+  } else if (command === "version") {
+    runVersion(args, flags);
+  } else if (command === "upgrade") {
+    runUpgrade(args, flags);
   } else if (command === "dashboard" || /\.(csv|json)$/i.test(command)) {
     runDashboard(args, flags);
   } else {
@@ -179,6 +193,7 @@ function runServe(args: string[], flags: GlobalFlags) {
   }
 
   startServer(resolved, port);
+  printUpgradeHint();
 }
 
 function runExport(args: string[], flags: GlobalFlags) {
@@ -359,6 +374,104 @@ function runDiff(args: string[], flags: GlobalFlags) {
   console.log("");
   console.log(formatDiffText(diff));
   console.log("");
+}
+
+function runVersion(args: string[], flags: GlobalFlags) {
+  const version = readLocalVersion();
+  const shouldCheck = args.includes("--check");
+
+  // Check for just-upgraded marker
+  const upgradedFrom = readUpgradeMarker();
+  if (upgradedFrom) {
+    if (flags.json) {
+      outputJson(success({ version, upgradedFrom }));
+    }
+    console.log(`  dashcli v${version} (upgraded from v${upgradedFrom})`);
+    const changelog = getChangelogBetween(upgradedFrom, version);
+    if (changelog) {
+      console.log("");
+      console.log(changelog);
+    }
+    return;
+  }
+
+  if (!shouldCheck) {
+    if (flags.json) {
+      outputJson(success({ version }));
+    }
+    console.log(`  dashcli v${version}`);
+    return;
+  }
+
+  // --check: also check for updates
+  checkForUpdate(true).then((result) => {
+    if (flags.json) {
+      outputJson(success({
+        version,
+        latest: result?.latest ?? version,
+        updateAvailable: result?.available ?? false,
+      }));
+      return;
+    }
+    if (result?.available) {
+      console.log(`  dashcli v${version} (update available: v${result.latest})`);
+      console.log(`  Run: dashcli upgrade`);
+    } else {
+      console.log(`  dashcli v${version} (up to date)`);
+    }
+  }).catch((err) => {
+    if (flags.json) {
+      outputJson(success({ version, checkFailed: true }));
+      return;
+    }
+    console.log(`  dashcli v${version}`);
+    console.error(`  Could not check for updates: ${err instanceof Error ? err.message : String(err)}`);
+  });
+}
+
+function runUpgrade(_args: string[], flags: GlobalFlags) {
+  const current = readLocalVersion();
+  log(flags, `\n  dashcli v${current}`);
+  log(flags, `  Checking for updates...\n`);
+
+  checkForUpdate(true).then(async (result) => {
+    if (!result?.available) {
+      if (flags.json) {
+        outputJson(success({ version: current, upToDate: true }));
+      }
+      console.log(`  Already up to date (v${current}).`);
+      return;
+    }
+
+    log(flags, `  Update available: v${current} → v${result.latest}\n`);
+
+    try {
+      const { oldVersion, newVersion } = await upgrade();
+
+      if (flags.json) {
+        outputJson(success({ oldVersion, newVersion }));
+        return;
+      }
+
+      console.log(`\n  ✓ Upgraded dashcli: v${oldVersion} → v${newVersion}\n`);
+
+      const changelog = getChangelogBetween(oldVersion, newVersion);
+      if (changelog) {
+        console.log("  What's new:");
+        console.log(changelog);
+        console.log("");
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  }).catch((err) => {
+    if (flags.json) {
+      const { envelope, exitCode } = errorToEnvelope(err);
+      outputJson(envelope, exitCode);
+    }
+    console.error(`  Upgrade failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
 }
 
 function runDashboard(args: string[], flags: GlobalFlags) {
