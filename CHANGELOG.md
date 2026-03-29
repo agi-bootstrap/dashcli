@@ -2,7 +2,11 @@
 
 All notable changes to dashcli will be documented in this file.
 
-## [0.1.7.0] - 2026-03-29
+## [0.7.0] - 2026-03-29
+
+> Versioning switched from 4-digit (0.1.X.Y) to standard semver (MAJOR.MINOR.PATCH) starting this release.
+> Pre-1.0: MINOR = new features or breaking changes, PATCH = bug fixes and docs.
+> Post-1.0: MAJOR = breaking changes, MINOR = new features, PATCH = bug fixes.
 
 ### Added
 - `dashcli version [--check]` — prints current version, optionally checks for updates against remote
