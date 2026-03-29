@@ -2,6 +2,24 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.1.7.0] - 2026-03-29
+
+### Added
+- `dashcli version [--check]` — prints current version, optionally checks for updates against remote
+- `dashcli upgrade` — self-update command, detects git clone vs vendored install, pulls latest, runs setup, shows changelog
+- Non-blocking upgrade hint on `dashcli serve` startup when a new version is available
+- Version check cache with mtime-based TTL (60min up-to-date, 720min upgrade-available)
+- Snooze with escalating backoff (24h, 48h, 7 days) — resets when a new version drops
+- Update check disable flag at `~/.dashcli/.update-check-disabled`
+- Post-upgrade marker shows changelog on next `dashcli version`
+- Vendored upgrade with backup-and-restore on failure
+- JSON envelope support (`--json`) for both version and upgrade commands
+- 68 new tests covering all upgrade paths, cache/snooze logic, CLI integration, and corner cases
+
+### Changed
+- `.gitignore` updated with upgrade state file patterns
+- README updated with "Updating" section and new command documentation
+
 ## [0.1.6.0] - 2026-03-27
 
 ### Added
