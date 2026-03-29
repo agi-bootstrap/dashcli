@@ -4,6 +4,7 @@ dashboards/
 *.db
 .context/
 .gstack/
+.claude/
 
 # Upgrade state files (written by dashcli upgrade)
 .last-update-check
