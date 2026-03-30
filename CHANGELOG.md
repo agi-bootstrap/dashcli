@@ -2,6 +2,18 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.8.0] - 2026-03-29
+
+### Added
+- **Config system.** New `dashcli config [get|set|list]` command with `--json` support. YAML config at `~/.dashcli/.config.yaml` with atomic writes and corrupt-file recovery. Migrates from the old `.update-check-disabled` flag file automatically.
+- **Auto-upgrade from cache.** Set `dashcli config set auto_upgrade true` and dashcli silently upgrades before any command when a cached update is available. Guarded by TTY check (never runs in pipes or CI). Never fetches from network, only acts on cached results.
+- **Upgrade consent flags.** `dashcli upgrade --snooze` defers with escalating backoff (24h, 48h, 1 week). `--auto` upgrades and enables auto-upgrade. `--disable-check` / `--enable-check` toggle version checking.
+- **Semver comparison.** `checkForUpdate()` now compares versions numerically, preventing silent downgrades when local is ahead of remote.
+
+### Changed
+- **Robust git upgrade.** `upgradeGit()` now uses `git fetch origin main` + `git reset --hard origin/main` instead of `git pull`, eliminating merge conflict failures on install directories.
+- **Serve hint updated** to mention `--snooze` option for deferring upgrades.
+
 ## [0.7.0] - 2026-03-29
 
 > Versioning switched from 4-digit (0.1.X.Y) to standard semver (MAJOR.MINOR.PATCH) starting this release.
