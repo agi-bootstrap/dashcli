@@ -11,3 +11,5 @@ dashboards/
 .update-snoozed
 .update-check-disabled
 .just-upgraded-from
+.config.yaml
+.config.yaml.tmp

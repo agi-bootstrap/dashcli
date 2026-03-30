@@ -24,7 +24,16 @@ import {
   upgrade,
   getChangelogBetween,
   printUpgradeHint,
+  writeSnooze,
+  disableUpdateCheck,
+  enableUpdateCheck,
+  maybeAutoUpgrade,
 } from "./upgrade";
+import {
+  getConfigValue,
+  setConfigValue,
+  listConfig,
+} from "./config";
 import { spawn } from "child_process";
 
 const rawArgs = process.argv.slice(2);
@@ -63,6 +72,15 @@ function usage() {
     dashcli diff <specA> <specB> Compare two specs and output a changelog
     dashcli version              Show version (add --check to check for updates)
     dashcli upgrade              Upgrade dashcli to the latest version
+    dashcli config               List config values
+    dashcli config get <key>     Get a config value
+    dashcli config set <key> <v> Set a config value (true/false)
+
+  Upgrade options:
+    --snooze                     Defer upgrade with escalating backoff
+    --auto                       Upgrade now and enable auto-upgrade
+    --disable-check              Disable update checks
+    --enable-check               Re-enable update checks
 
   Options:
     --port <n>                   Port for web viewer (default: 3838)
@@ -90,8 +108,15 @@ if (!command || command === "--help" || command === "-h") {
   process.exit(0);
 }
 
+// Auto-upgrade from cache (non-blocking, TTY-only, never fetches)
+if (command !== "upgrade" && command !== "version" && command !== "config") {
+  await maybeAutoUpgrade();
+}
+
 try {
-  if (command === "create") {
+  if (command === "config") {
+    runConfig(args, flags);
+  } else if (command === "create") {
     runCreate(args, flags);
   } else if (command === "serve") {
     runServe(args, flags);
@@ -376,6 +401,80 @@ function runDiff(args: string[], flags: GlobalFlags) {
   console.log("");
 }
 
+function runConfig(args: string[], flags: GlobalFlags) {
+  const sub = args[1]; // get, set, or undefined (list)
+
+  if (!sub || sub === "list") {
+    const config = listConfig();
+    if (flags.json) {
+      outputJson(success(config));
+      return;
+    }
+    const entries = Object.entries(config);
+    if (entries.length === 0) {
+      console.log("  No config values set.");
+    } else {
+      for (const [key, value] of entries) {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+    return;
+  }
+
+  if (sub === "get") {
+    const key = args[2];
+    if (!key) {
+      if (flags.json) outputJson(failure("Provide a config key. Valid keys: auto_upgrade, update_check", "RUNTIME_ERROR"), 1);
+      console.error("  Error: Provide a config key. Valid keys: auto_upgrade, update_check");
+      process.exit(1);
+    }
+    if (key !== "auto_upgrade" && key !== "update_check") {
+      if (flags.json) outputJson(failure(`Unknown config key: ${key}. Valid keys: auto_upgrade, update_check`, "RUNTIME_ERROR"), 1);
+      console.error(`  Error: Unknown config key: ${key}. Valid keys: auto_upgrade, update_check`);
+      process.exit(1);
+    }
+    const value = getConfigValue(key);
+    if (flags.json) {
+      outputJson(success({ key, value: value ?? null }));
+      return;
+    }
+    console.log(value !== undefined ? `  ${key}: ${value}` : `  ${key}: (not set)`);
+    return;
+  }
+
+  if (sub === "set") {
+    const key = args[2];
+    const rawValue = args[3];
+    if (!key || rawValue === undefined) {
+      if (flags.json) outputJson(failure("Usage: dashcli config set <key> <true|false>", "RUNTIME_ERROR"), 1);
+      console.error("  Usage: dashcli config set <key> <true|false>");
+      process.exit(1);
+    }
+    if (key !== "auto_upgrade" && key !== "update_check") {
+      if (flags.json) outputJson(failure(`Unknown config key: ${key}. Valid keys: auto_upgrade, update_check`, "RUNTIME_ERROR"), 1);
+      console.error(`  Error: Unknown config key: ${key}. Valid keys: auto_upgrade, update_check`);
+      process.exit(1);
+    }
+    if (rawValue !== "true" && rawValue !== "false") {
+      if (flags.json) outputJson(failure(`Invalid value: ${rawValue}. Must be true or false.`, "RUNTIME_ERROR"), 1);
+      console.error(`  Error: Invalid value: ${rawValue}. Must be true or false.`);
+      process.exit(1);
+    }
+    const value = rawValue === "true";
+    setConfigValue(key, value);
+    if (flags.json) {
+      outputJson(success({ key, value }));
+      return;
+    }
+    console.log(`  ${key}: ${value}`);
+    return;
+  }
+
+  if (flags.json) outputJson(failure(`Unknown config subcommand: ${sub}. Use get, set, or list.`, "RUNTIME_ERROR"), 1);
+  console.error(`  Error: Unknown config subcommand: ${sub}. Use get, set, or list.`);
+  process.exit(1);
+}
+
 function runVersion(args: string[], flags: GlobalFlags) {
   const version = readLocalVersion();
   const shouldCheck = args.includes("--check");
@@ -430,7 +529,38 @@ function runVersion(args: string[], flags: GlobalFlags) {
 }
 
 function runUpgrade(_args: string[], flags: GlobalFlags) {
+  // Handle action flags (no network check needed)
+  if (_args.includes("--disable-check")) {
+    disableUpdateCheck();
+    if (flags.json) outputJson(success({ update_check: false }));
+    console.log("  Update checks disabled. Re-enable with: dashcli upgrade --enable-check");
+    return;
+  }
+  if (_args.includes("--enable-check")) {
+    enableUpdateCheck();
+    if (flags.json) outputJson(success({ update_check: true }));
+    console.log("  Update checks re-enabled.");
+    return;
+  }
+
   const current = readLocalVersion();
+
+  if (_args.includes("--snooze")) {
+    checkForUpdate(true).then((result) => {
+      const version = result?.latest ?? current;
+      const { level, durationLabel } = writeSnooze(version);
+      if (flags.json) outputJson(success({ snoozed: true, version, level, duration: durationLabel }));
+      console.log(`  Snoozed upgrade reminders for ${durationLabel}.`);
+      console.log(`  Tip: dashcli config set auto_upgrade true for automatic upgrades.`);
+    }).catch(() => {
+      // Even if check fails, snooze the current version
+      const { level, durationLabel } = writeSnooze(current);
+      if (flags.json) outputJson(success({ snoozed: true, version: current, level, duration: durationLabel }));
+      console.log(`  Snoozed upgrade reminders for ${durationLabel}.`);
+    });
+    return;
+  }
+
   log(flags, `\n  dashcli v${current}`);
   log(flags, `  Checking for updates...\n`);
 
@@ -448,12 +578,21 @@ function runUpgrade(_args: string[], flags: GlobalFlags) {
     try {
       const { oldVersion, newVersion } = await upgrade();
 
+      // If --auto flag, enable auto-upgrade after successful upgrade
+      if (_args.includes("--auto")) {
+        setConfigValue("auto_upgrade", true);
+      }
+
       if (flags.json) {
-        outputJson(success({ oldVersion, newVersion }));
+        outputJson(success({ oldVersion, newVersion, autoUpgrade: _args.includes("--auto") }));
         return;
       }
 
       console.log(`\n  ✓ Upgraded dashcli: v${oldVersion} → v${newVersion}\n`);
+
+      if (_args.includes("--auto")) {
+        console.log("  Auto-upgrade enabled. Future updates will install automatically.\n");
+      }
 
       const changelog = getChangelogBetween(oldVersion, newVersion);
       if (changelog) {
