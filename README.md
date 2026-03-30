@@ -118,7 +118,26 @@ Prints the current version. Add `--check` to also check for updates against the 
 
 ### `dashcli upgrade`
 
-Upgrades dashcli to the latest version. Detects git clone vs vendored install, pulls or clones the latest, runs setup, and shows what's new from the changelog.
+Upgrades dashcli to the latest version. Detects git clone vs vendored install, fetches and resets to latest, runs setup, and shows what's new from the changelog.
+
+| Flag | Effect |
+|------|--------|
+| `--snooze` | Defer upgrade reminders with escalating backoff (24h, 48h, 1 week) |
+| `--auto` | Upgrade now and enable auto-upgrade for future updates |
+| `--disable-check` | Disable update checks entirely |
+| `--enable-check` | Re-enable update checks |
+
+### `dashcli config [get|set|list]`
+
+Manage dashcli configuration. Config is stored at `~/.dashcli/.config.yaml`.
+
+```bash
+dashcli config                        # list all config values
+dashcli config get auto_upgrade       # get a specific value
+dashcli config set auto_upgrade true  # set a value (true/false)
+```
+
+Available keys: `auto_upgrade` (auto-upgrade before commands), `update_check` (enable/disable version checks).
 
 ### Global flags
 
