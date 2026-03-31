@@ -2,6 +2,18 @@
 
 All notable changes to dashcli will be documented in this file.
 
+## [0.9.0] - 2026-03-30
+
+### Added
+- **`dashcli render` command.** Render a single chart as a PNG image or self-contained HTML file. Works with standalone chart specs or extracts one chart from a dashboard spec via `--chart <id>`. PNG output uses Chrome headless screenshot (zero new npm dependencies). HTML available via `--as html`.
+- **Standalone chart spec.** New minimal YAML format for individual charts: `source` + `chart` (no layout, filters, or position). File convention: `*.chart.yaml`. Validated with Zod via `StandaloneChartSpec`.
+- **`dashcli suggest --charts-dir <dir>`.** Writes individual `.chart.yaml` files alongside the dashboard spec. Filter placeholders are resolved to `1=1` so chart files work independently.
+- **Separate Zod types for dashboard vs standalone charts.** `ChartSpec` (with position) for dashboards, `StandaloneChartFields` (no position) for standalone specs. No shared optional position, preventing null-destructure bugs.
+- 26 new tests covering schema validation, spec type detection, HTML render, chart file generation, and error paths.
+
+### Changed
+- `schema.ts` refactored to share chart field definitions between `ChartSpec` and `StandaloneChartFields` via extracted `chartFields` object.
+
 ## [0.8.0] - 2026-03-29
 
 ### Added
