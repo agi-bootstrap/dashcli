@@ -373,7 +373,9 @@ function runSuggest(args: string[], flags: GlobalFlags) {
           process.exit(1);
         }
         const { files, spec } = writeChartFiles(resolved, chartsDir);
-        const yamlResult = suggest(resolved);
+        // Reuse the spec from writeChartFiles to avoid double-profiling
+        const yaml = require("yaml");
+        const yamlResult = yaml.stringify(spec, { lineWidth: 0 });
         if (flags.json) {
           outputJson(success({ yaml: yamlResult, chartFiles: files }));
         }

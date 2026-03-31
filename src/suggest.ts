@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { resolve, basename } from "path";
+import { resolve, basename, relative, dirname } from "path";
+import { mkdirSync, writeFileSync } from "fs";
 import { DashboardSpec, type FilterSpec } from "./schema";
 import { loadDataSource } from "./datasource";
 import { profileDataSource, type ProfileResult } from "./profiler";
@@ -250,19 +251,16 @@ export function writeChartFiles(
   sourcePath: string,
   chartsDir: string,
 ): { files: string[]; spec: ReturnType<typeof generateSpec> } {
-  const { mkdirSync, writeFileSync } = require("fs");
-  const { resolve: resolvePath, relative: relativePath, dirname } = require("path");
-
   const profile = profileDataSource(sourcePath);
   const base = basename(resolve(sourcePath));
   const spec = generateSpec(profile, base);
 
-  const resolvedChartsDir = resolvePath(chartsDir);
+  const resolvedChartsDir = resolve(chartsDir);
   mkdirSync(resolvedChartsDir, { recursive: true });
 
   // Compute source path relative to chartsDir
-  const resolvedSource = resolvePath(sourcePath);
-  const relSource = relativePath(resolvedChartsDir, dirname(resolvedSource)) + "/" + basename(resolvedSource);
+  const resolvedSource = resolve(sourcePath);
+  const relSource = relative(resolvedChartsDir, dirname(resolvedSource)) + "/" + basename(resolvedSource);
   const sourceRef = relSource.startsWith(".") ? relSource : "./" + relSource;
 
   // Build filter-free SQL by replacing {{filter_id}} with 1=1
@@ -280,7 +278,7 @@ export function writeChartFiles(
     query = query.replace(/\b1=1(?:\s+AND\s+1=1)+\b/g, "1=1");
     const standalone = { source: sourceRef, chart: { ...chartFields, query } };
     const yamlStr = yaml.stringify(standalone, { lineWidth: 0 });
-    const filePath = resolvePath(resolvedChartsDir, `${chart.id}.chart.yaml`);
+    const filePath = resolve(resolvedChartsDir, `${chart.id}.chart.yaml`);
     writeFileSync(filePath, yamlStr, "utf-8");
     files.push(filePath);
   }

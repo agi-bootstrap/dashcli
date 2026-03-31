@@ -87,11 +87,11 @@ function generateChartHtml(
   if (chart.type === "kpi") {
     const row = data[0] || {};
     const val = row.value ?? row[Object.keys(row)[0] ?? ""] ?? null;
-    return renderKpiHtml(label, val, chart.format, echartsSource);
+    return renderKpiHtml(label, val, chart.format);
   }
 
   if (chart.type === "table") {
-    return renderTableHtml(label, data, echartsSource);
+    return renderTableHtml(label, data);
   }
 
   // type: custom
@@ -162,7 +162,7 @@ instance.setOption(resolved, true);
 </html>`;
 }
 
-function renderKpiHtml(label: string, val: unknown, format?: string, echartsSource?: string): string {
+function renderKpiHtml(label: string, val: unknown, format?: string): string {
   let formatted: string;
   if (val == null) {
     formatted = "—";
@@ -197,7 +197,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sa
 </html>`;
 }
 
-function renderTableHtml(label: string, data: Record<string, unknown>[], echartsSource?: string): string {
+function renderTableHtml(label: string, data: Record<string, unknown>[]): string {
   if (!data.length) {
     return `<!DOCTYPE html><html><head><style>body{font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh;color:#737373;}</style></head><body>No data</body></html>`;
   }
@@ -285,23 +285,27 @@ async function screenshotHtml(
     );
   }
 
-  const tmpHtml = resolve(tmpdir(), `dashcli-render-${Date.now()}.html`);
+  const tmpHtml = resolve(tmpdir(), `dashcli-render-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.html`);
   writeFileSync(tmpHtml, htmlContent, "utf-8");
 
   const outDir = dirname(outPath);
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
   try {
-    const proc = Bun.spawn([
+    const args = [
       chrome,
       "--headless=new",
-      "--no-sandbox",
       "--disable-gpu",
       `--screenshot=${resolve(outPath)}`,
       `--window-size=${width},${height}`,
       "--virtual-time-budget=5000",
       `file://${tmpHtml}`,
-    ], { stdout: "pipe", stderr: "pipe" });
+    ];
+    // --no-sandbox only needed in containers/CI, not on developer machines
+    if (process.platform === "linux" && process.getuid?.() === 0) {
+      args.splice(2, 0, "--no-sandbox");
+    }
+    const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });
 
     const exitCode = await proc.exited;
     if (exitCode !== 0) {
@@ -347,12 +351,15 @@ export async function renderChart(
     db.close();
   }
 
-  // Fetch ECharts for inlining (needed for both HTML and PNG)
-  const echartsRes = await fetch(ECHARTS_CDN);
-  if (!echartsRes.ok) {
-    throw new Error(`Failed to fetch ECharts: ${echartsRes.statusText}`);
+  // Only fetch ECharts for custom chart types (KPI and table don't need it)
+  let echartsSource = "";
+  if (target.chart.type === "custom") {
+    const echartsRes = await fetch(ECHARTS_CDN);
+    if (!echartsRes.ok) {
+      throw new Error(`Failed to fetch ECharts: ${echartsRes.statusText}`);
+    }
+    echartsSource = await echartsRes.text();
   }
-  const echartsSource = await echartsRes.text();
 
   const html = generateChartHtml(target.chart, data, echartsSource);
   const format = options.format ?? "png";
