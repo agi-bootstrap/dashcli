@@ -5,6 +5,7 @@ Agent-native BI dashboards from CSV and JSON files. Powered by Bun, SQLite, and 
 ```
 dashcli suggest data.csv        # generate a dashboard spec from your data
 dashcli serve spec.yaml         # live-reloading dashboard at localhost:3838
+dashcli render chart.yaml       # render a single chart as PNG (or --as html)
 dashcli export spec.yaml        # standalone HTML you can email or host anywhere
 dashcli read spec.yaml          # structured spec summary (text or JSON)
 dashcli diff a.yaml b.yaml      # compare two specs, see what changed
@@ -84,6 +85,8 @@ Generates a dashboard spec from a CSV or JSON file.
 
 Both modes output YAML to stdout for composability.
 
+Add `--charts-dir <dir>` to also write individual `.chart.yaml` files (one per chart) for use with `dashcli render`.
+
 ### `dashcli serve <spec.yaml> [--port n]`
 
 Launches a local server on port 3838 with:
@@ -91,6 +94,15 @@ Launches a local server on port 3838 with:
 - Interactive filters (date range, dropdown, multi-select, range, text search)
 - Live reload via SSE — edit the YAML or data file and the browser updates automatically
 - Responsive layout (CSS Grid, mobile breakpoint at 768px)
+
+### `dashcli render <spec> [--chart id] [--as png|html] [--out file]`
+
+Renders a single chart as a PNG image (default) or self-contained HTML file. Works with:
+
+- **Standalone chart spec** (`*.chart.yaml`): `dashcli render chart.yaml`
+- **Dashboard spec with chart ID**: `dashcli render dashboard.yaml --chart revenue-by-region`
+
+PNG output requires Chrome/Chromium installed. Use `--as html` for HTML output without Chrome. Use `--width` and `--height` to control PNG dimensions (default: 800x600).
 
 ### `dashcli export <spec.yaml> [--out dir]`
 
@@ -244,6 +256,7 @@ src/
   csv.ts          CSV parser + type inference
   json.ts         JSON adapter
   export.ts       Standalone HTML export
+  render.ts       Single chart render (PNG/HTML)
   suggest.ts      Heuristic + AI-powered spec generation
   profiler.ts     Column classification + type inference
   utils.ts        Shared utilities
