@@ -242,6 +242,52 @@ export function suggest(sourcePath: string): string {
   return yaml.stringify(spec, { lineWidth: 0 });
 }
 
+/**
+ * Write individual standalone chart specs from a dashboard spec.
+ * Each chart is written as a .chart.yaml file in chartsDir.
+ */
+export function writeChartFiles(
+  sourcePath: string,
+  chartsDir: string,
+): { files: string[]; spec: ReturnType<typeof generateSpec> } {
+  const { mkdirSync, writeFileSync } = require("fs");
+  const { resolve: resolvePath, relative: relativePath, dirname } = require("path");
+
+  const profile = profileDataSource(sourcePath);
+  const base = basename(resolve(sourcePath));
+  const spec = generateSpec(profile, base);
+
+  const resolvedChartsDir = resolvePath(chartsDir);
+  mkdirSync(resolvedChartsDir, { recursive: true });
+
+  // Compute source path relative to chartsDir
+  const resolvedSource = resolvePath(sourcePath);
+  const relSource = relativePath(resolvedChartsDir, dirname(resolvedSource)) + "/" + basename(resolvedSource);
+  const sourceRef = relSource.startsWith(".") ? relSource : "./" + relSource;
+
+  // Build filter-free SQL by replacing {{filter_id}} with 1=1
+  const filterIds = spec.filters.map((f: { id: string }) => f.id);
+
+  const files: string[] = [];
+  for (const chart of spec.charts) {
+    const { position: _, ...chartFields } = chart;
+    // Strip filter placeholders from query
+    let query = chartFields.query;
+    for (const fid of filterIds) {
+      query = query.replaceAll(`{{${fid}}}`, "1=1");
+    }
+    // Clean up "WHERE 1=1 AND 1=1 AND 1=1" → "WHERE 1=1"
+    query = query.replace(/\b1=1(?:\s+AND\s+1=1)+\b/g, "1=1");
+    const standalone = { source: sourceRef, chart: { ...chartFields, query } };
+    const yamlStr = yaml.stringify(standalone, { lineWidth: 0 });
+    const filePath = resolvePath(resolvedChartsDir, `${chart.id}.chart.yaml`);
+    writeFileSync(filePath, yamlStr, "utf-8");
+    files.push(filePath);
+  }
+
+  return { files, spec };
+}
+
 // ─── LLM Path ─────────────────────────────────────────────────────────────────
 
 /**

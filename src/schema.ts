@@ -15,18 +15,30 @@ export const FilterSpec = z.object({
   ]),
 });
 
-export const ChartSpec = z.object({
+// Shared chart fields (no position — used by both dashboard and standalone specs)
+const chartFields = {
   id: z.string(),
   type: z.enum(["custom", "kpi", "table"]),
   query: z.string(),
-  position: Position,
   label: z.string().optional(),
   format: z.enum(["currency", "number", "percent"]).optional(),
   option: z.record(z.string(), z.unknown()).optional(),
-}).refine(
-  (c) => c.type !== "custom" || c.option != null,
-  { message: "option is required for custom charts" },
-);
+};
+
+const chartOptionRefine = {
+  fn: (c: { type: string; option?: unknown }) => c.type !== "custom" || c.option != null,
+  message: "option is required for custom charts",
+};
+
+// Dashboard chart: includes position for grid layout
+export const ChartSpec = z.object({
+  ...chartFields,
+  position: Position,
+}).refine(chartOptionRefine.fn, { message: chartOptionRefine.message });
+
+// Standalone chart fields: no position (used inside StandaloneChartSpec)
+export const StandaloneChartFields = z.object(chartFields)
+  .refine(chartOptionRefine.fn, { message: chartOptionRefine.message });
 
 export const LayoutSpec = z.object({
   columns: z.number().default(3),
@@ -55,6 +67,14 @@ export const DashboardSpec = z.object({
   { message: "Filter IDs must be unique" },
 );
 
+// Standalone chart spec: source + single chart, no layout/filters/position
+export const StandaloneChartSpec = z.object({
+  source: z.string(),
+  chart: StandaloneChartFields,
+});
+
 export type DashboardSpec = z.infer<typeof DashboardSpec>;
 export type ChartSpec = z.infer<typeof ChartSpec>;
 export type FilterSpec = z.infer<typeof FilterSpec>;
+export type StandaloneChartFields = z.infer<typeof StandaloneChartFields>;
+export type StandaloneChartSpec = z.infer<typeof StandaloneChartSpec>;

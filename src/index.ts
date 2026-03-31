@@ -3,7 +3,8 @@
 import { resolve, basename } from "path";
 import { startServer, startServerFromSpec } from "./server";
 import { exportDashboard } from "./export";
-import { suggest, suggestAI, generateSpec } from "./suggest";
+import { suggest, suggestAI, generateSpec, writeChartFiles } from "./suggest";
+import { renderChart } from "./render";
 import { profileDataSource } from "./profiler";
 import { readSpec, formatReadText } from "./read";
 import { diffSpecs, formatDiffText } from "./diff";
@@ -66,6 +67,7 @@ function usage() {
     dashcli create [name]        Create a sample dashboard
     dashcli serve <spec>         Serve a dashboard in the browser
     dashcli export <spec>        Export a self-contained HTML file
+    dashcli render <spec>        Render a single chart as PNG or HTML
     dashcli suggest <source>     Generate a dashboard spec from a data file
     dashcli profile <source>     Profile a data source (JSON output)
     dashcli read <spec>          Read a spec and output a structured summary
@@ -84,20 +86,27 @@ function usage() {
 
   Options:
     --port <n>                   Port for web viewer (default: 3838)
-    --out <dir>                  Output directory for export (default: source dir)
+    --out <path>                 Output file for render, directory for export
+    --chart <id>                 Chart ID to render from a dashboard spec
+    --charts-dir <dir>           Write individual chart specs alongside suggest
+    --as <png|html>              Render output format (default: png)
+    --width <n>                  Chart width in px (render, default: 800)
+    --height <n>                 Chart height in px (render, default: 600)
     --ai                         Use LLM for suggest (requires ANTHROPIC_API_KEY)
     --json                       Output machine-readable JSON envelope
-    --format <text|json>         Output format (default: text, --json implies json)
 
   Examples:
     dashcli data/sales.csv                         # instant dashboard in browser
     dashcli create my-dashboard
     dashcli serve dashboards/my-dashboard.yaml
     dashcli export dashboards/my-dashboard.yaml --out dist/
+    dashcli render chart.yaml                      # standalone chart → PNG
+    dashcli render chart.yaml --as html             # standalone chart → HTML
+    dashcli render spec.yaml --chart revenue       # one chart from dashboard → PNG
     dashcli suggest data/sales.csv
+    dashcli suggest data/sales.csv --charts-dir ./charts/
     dashcli suggest data/sales.csv --ai
     dashcli profile data/sales.csv
-    dashcli read dashboards/my-dashboard.yaml
     dashcli read dashboards/my-dashboard.yaml --json
     dashcli diff dashboards/v1.yaml dashboards/v2.yaml --json
 `);
@@ -122,6 +131,8 @@ try {
     runServe(args, flags);
   } else if (command === "export") {
     runExport(args, flags);
+  } else if (command === "render") {
+    runRender(args, flags);
   } else if (command === "suggest") {
     runSuggest(args, flags);
   } else if (command === "profile") {
@@ -256,6 +267,58 @@ function runExport(args: string[], flags: GlobalFlags) {
     });
 }
 
+function runRender(args: string[], flags: GlobalFlags) {
+  const specPath = args[1];
+  if (!specPath) {
+    if (flags.json) outputJson(failure("Provide a path to a chart or dashboard spec.", "RUNTIME_ERROR"), 1);
+    console.error("Error: Provide a path to a chart or dashboard spec.");
+    console.error("  Usage: dashcli render <spec> [--chart <id>] [--out <file>] [--format png|html]");
+    process.exit(1);
+  }
+
+  const resolved = resolve(specPath);
+  if (!existsSync(resolved)) {
+    if (flags.json) outputJson(failure(`File not found: ${specPath}`, "FILE_NOT_FOUND"), 1);
+    console.error(`Error: File not found: ${specPath}`);
+    process.exit(1);
+  }
+
+  const chartFlag = args.indexOf("--chart");
+  const chartId = chartFlag !== -1 ? args[chartFlag + 1] : undefined;
+
+  const outFlag = args.indexOf("--out");
+  const outPath = outFlag !== -1 ? args[outFlag + 1] : undefined;
+
+  const asFlag = args.indexOf("--as");
+  const asVal = asFlag !== -1 ? args[asFlag + 1] : undefined;
+  const format = (asVal === "html" ? "html" : "png") as "png" | "html";
+
+  const widthFlag = args.indexOf("--width");
+  const width = widthFlag !== -1 ? Number(args[widthFlag + 1]) || 800 : 800;
+
+  const heightFlag = args.indexOf("--height");
+  const height = heightFlag !== -1 ? Number(args[heightFlag + 1]) || 600 : 600;
+
+  renderChart(resolved, { chartId, outPath, format, width, height })
+    .then((result) => {
+      if (flags.json) {
+        const envelope: Record<string, unknown> = { chartId: result.chartId };
+        if (result.path) envelope.path = result.path;
+        if (!result.path && format === "html") envelope.html = result.html;
+        outputJson(success(envelope));
+        return;
+      }
+      if (!result.path && format === "html") {
+        process.stdout.write(result.html);
+      } else if (result.path) {
+        console.error(`  ✓ Rendered: ${result.path}`);
+      }
+    })
+    .catch((err) => {
+      handleError(err);
+    });
+}
+
 function runSuggest(args: string[], flags: GlobalFlags) {
   const sourcePath = args[1];
   if (!sourcePath) {
@@ -299,12 +362,31 @@ function runSuggest(args: string[], flags: GlobalFlags) {
       });
   } else {
     try {
-      const result = suggest(resolved);
-      if (flags.json) {
-        outputJson(success({ yaml: result }));
+      const chartsDirFlag = args.indexOf("--charts-dir");
+      const chartsDir = chartsDirFlag !== -1 ? args[chartsDirFlag + 1] : undefined;
+
+      if (chartsDir) {
+        // Validate --charts-dir is a relative path
+        if (chartsDir.startsWith("/")) {
+          if (flags.json) outputJson(failure("--charts-dir must be a relative path", "RUNTIME_ERROR"), 1);
+          console.error("Error: --charts-dir must be a relative path");
+          process.exit(1);
+        }
+        const { files, spec } = writeChartFiles(resolved, chartsDir);
+        const yamlResult = suggest(resolved);
+        if (flags.json) {
+          outputJson(success({ yaml: yamlResult, chartFiles: files }));
+        }
+        process.stdout.write(yamlResult);
+        console.error(`  Generated 1 dashboard spec + ${files.length} chart files in ${chartsDir}/`);
+      } else {
+        const result = suggest(resolved);
+        if (flags.json) {
+          outputJson(success({ yaml: result }));
+        }
+        process.stdout.write(result);
+        console.error(`  Generated 1 spec. Try: dashcli suggest ${sourcePath} > spec.yaml && dashcli serve spec.yaml`);
       }
-      process.stdout.write(result);
-      console.error(`  Generated 1 spec. Try: dashcli suggest ${sourcePath} > spec.yaml && dashcli serve spec.yaml`);
     } catch (err: unknown) {
       handleError(err);
     }
